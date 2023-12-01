@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "banking-app"
+version = "0.1.0"
+description = "Application for users of bank."
+authors = ["Deyvidas <devidbanyavichyus@yandex.ru>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pydantic-settings = "^2.1.0"
+sqlalchemy = "^2.0.23"
+psycopg = {extras = ["binary"], version = "^3.1.13"}
+fastapi = {extras = ["all"], version = "^0.104.1"}
+alembic = "^1.13.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
