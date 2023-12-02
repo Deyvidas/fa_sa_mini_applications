@@ -8,8 +8,8 @@ from sqlalchemy.orm.session import Session
 
 from src.banking_app.connection import get_session
 from src.banking_app.models.client import Client
-from src.banking_app.schemas.client import ClientCreateDTO
-from src.banking_app.schemas.client import ClientFetchDTO
+from src.banking_app.schemas.client import ClientPostDTO
+from src.banking_app.schemas.client import ClientGetDTO
 
 
 router = APIRouter(
@@ -21,25 +21,25 @@ router = APIRouter(
 @router.get(
     path='/',
     status_code=status.OK,
-    response_model=list[ClientFetchDTO],
+    response_model=list[ClientGetDTO],
 )
 def get_users(session: Session = Depends(get_session)):
     query = select(Client)
     instances = session.execute(query).scalars().all()
-    result = [instance.to_dto_model(ClientFetchDTO) for instance in instances]
+    result = [instance.to_dto_model(ClientGetDTO) for instance in instances]
     return result
 
 
 @router.post(
     path='/',
     status_code=status.CREATED,
-    response_model=ClientFetchDTO,
+    response_model=ClientGetDTO,
 )
 def add_client(
-        client_data: ClientCreateDTO,
+        client_data: ClientPostDTO,
         session: Session = Depends(get_session),
 ):
     instance = Client(**client_data.model_dump())
     session.add(instance)
     session.commit()
-    return instance.to_dto_model(ClientFetchDTO)
+    return instance.to_dto_model(ClientGetDTO)

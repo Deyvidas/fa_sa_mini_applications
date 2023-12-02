@@ -69,7 +69,7 @@ with venv module:
 <p align="center">5. Make migrations</p>
 
 ```bash
-alembic upgrade 7da164889db9
+alembic upgrade head
 ```
 
 <p align="center">6. Run application on localhost</p>
