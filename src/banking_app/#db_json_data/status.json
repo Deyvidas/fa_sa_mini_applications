@@ -1,0 +1,14 @@
+[
+    {
+        "status": 100,
+        "description": "The client is waiting for the card"
+    },
+    {
+        "status": 200,
+        "description": "Client is active"
+    },
+    {
+        "status": 300,
+        "description": "Former bank client"
+    }
+]

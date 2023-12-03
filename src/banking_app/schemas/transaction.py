@@ -11,5 +11,5 @@ class TransactionPostDTO(Base):
     card_number: str
 
 
-class TransactionGetDTO(Base):
+class TransactionGetDTO(TransactionPostDTO):
     trans_id: int
