@@ -1,3 +1,8 @@
+from datetime import timedelta
+from datetime import timezone
+
+from enum import Enum
+
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
@@ -5,6 +10,11 @@ from pydantic_settings import SettingsConfigDict
 
 
 APP_DIR = Path(__file__).parent
+
+
+class TimeZone(Enum):
+    UTC = timezone(offset=timedelta(hours=0), name='UTC')
+    MSC = timezone(offset=timedelta(hours=+3), name='MSC')
 
 
 class Settings(BaseSettings):
@@ -24,6 +34,10 @@ class Settings(BaseSettings):
             port=self.DB_PORT,
             db_name=self.DB_NAME,
         )
+
+    @property
+    def TZ(self) -> timezone:
+        return TimeZone.UTC.value
 
     model_config = SettingsConfigDict(env_file=APP_DIR / '.env')
 

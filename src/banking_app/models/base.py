@@ -7,7 +7,7 @@ from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import mapped_column
 
-from typing import Annotated
+from typing import Annotated, Any
 from typing import Type
 
 
@@ -36,6 +36,9 @@ class Base(DeclarativeBase):
 
     def __repr__(self) -> str:
         return str(self)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return super().__init__(*args, **kwargs)
 
     def to_dto_model(self, DTOModel: Type[BaseModel]) -> BaseModel:
         fields = DTOModel.model_fields.keys()
