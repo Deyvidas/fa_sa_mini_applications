@@ -15,6 +15,6 @@ engine = create_engine(
 session = sessionmaker(bind=engine, expire_on_commit=False)
 
 
-def get_session():
+def activate_session():
     with session() as session_obj:
         return session_obj

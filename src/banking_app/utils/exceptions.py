@@ -17,9 +17,9 @@ class BaseErrorMessage(BaseModel):
 
 class UniquesViolationMessage(BaseModel):
     detail: str = Field(
-        default='{model} which unique field value {kwargs} already exists',
+        default='{model} with field value {kwargs} already exists',
         examples=[
-            '{model} which unique field value {key}={value} already exists'
+            '{model} with field value {key}={value} already exists'
         ],
     )
 
