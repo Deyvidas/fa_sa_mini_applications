@@ -1,5 +1,6 @@
-from sqlalchemy.orm.session import Session
-from sqlalchemy.sql.expression import select
+from sqlalchemy import Select
+from sqlalchemy import Insert
+from sqlalchemy.orm import joinedload
 
 from typing import Any
 from typing import Type
@@ -13,24 +14,25 @@ class ClientManager(BaseManager):
     def model(self) -> Type[Client]:
         return Client
 
-    def bulk_create(
-            self,
-            session: Session,
-            *,
-            kwargs_list: list[dict[str, Any]],
-    ) -> list[Client]:
-        [kwargs.setdefault('status', 200) for kwargs in kwargs_list]
-        return super().bulk_create(session, kwargs_list=kwargs_list)
-
-    def create(self, session: Session, **kwargs) -> Client:
-        kwargs.setdefault('status', 200)
-        return super().create(session, **kwargs)
-
-    def get_by_status(self, session: Session, *, status: int):
-        query = (
-            select(self.model)
-            .join(self.model.client_status)
-            .filter(self.model.status == status)
+    def filter(self, **kwargs) -> Select:
+        statement = (
+            super().filter(**kwargs)
+            .options(joinedload(self.model.client_status))
         )
-        result = session.execute(query).scalars().all()
-        return result
+        return statement
+
+    def create(self, **kwargs) -> Insert:
+        kwargs.setdefault('status', 200)
+        statement = (
+            super().create(**kwargs)
+            .options(joinedload(self.model.client_status))
+        )
+        return statement
+
+    def bulk_create(self, list_kwargs: list[dict[str, Any]]) -> Insert:
+        [kwargs.setdefault('status', 200) for kwargs in list_kwargs]
+        statement = (
+            super().bulk_create(list_kwargs)
+            .options(joinedload(self.model.client_status))
+        )
+        return statement

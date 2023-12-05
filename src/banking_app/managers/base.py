@@ -3,8 +3,12 @@ from abc import abstractmethod
 
 from typing import Any
 
-from sqlalchemy.orm.session import Session
+from sqlalchemy import Select
+from sqlalchemy import Insert
+from sqlalchemy.sql.expression import insert
 from sqlalchemy.sql.expression import select
+
+from src.banking_app.conf import NotSpecifiedParam
 from src.banking_app.models.base import Base
 
 
@@ -17,27 +21,29 @@ class AbstractManager(ABC):
 
 class BaseManager(AbstractManager):
 
-    def create(self, session: Session, **kwargs) -> Base:
-        instance = self.model(**kwargs)
-        session.add(instance)
-        session.commit()
-        return instance
+    def filter(self, **kwargs) -> Select:
+        self._remove_not_specified_params(kwargs)
+        statement = select(self.model).filter_by(**kwargs)
+        return statement
 
-    def filter(self, session: Session, **kwargs) -> list[Base]:
-        query = select(self.model).filter_by(**kwargs)
-        return session.execute(query).scalars().all()
+    def create(self, **kwargs) -> Insert:
+        statement = (
+            insert(self.model)
+            .values(**kwargs)
+            .returning(self.model)
+        )
+        return statement
 
-    def get(self, session: Session, **kwargs) -> Base:
-        query = select(self.model).filter_by(**kwargs)
-        return session.execute(query).scalars().one()
+    def bulk_create(self, list_kwargs: list[dict[str, Any]]) -> Insert:
+        statement = (
+            insert(self.model)
+            .values(list_kwargs)
+            .returning(self.model)
+        )
+        return statement
 
-    def bulk_create(
-            self,
-            session: Session,
-            *,
-            kwargs_list: list[dict[str, Any]],
-    ) -> list[Base]:
-        instances = [self.model(**kwargs) for kwargs in kwargs_list]
-        session.add_all(instances)
-        session.commit()
-        return instances
+    @staticmethod
+    def _remove_not_specified_params(kwargs: dict[str, Any]) -> None:
+        """Pop from dictionary keys which value has NotSpecifiedParam type."""
+        keys_to_pop = [k for k, v in kwargs.items() if v is NotSpecifiedParam]
+        [kwargs.pop(key) for key in keys_to_pop]

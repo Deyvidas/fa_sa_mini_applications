@@ -8,8 +8,13 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 
+from typing import NewType
+
 
 APP_DIR = Path(__file__).parent
+
+
+NotSpecifiedParam = NewType('NotSpecifiedParam', type)
 
 
 class TimeZone(Enum):
