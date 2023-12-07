@@ -5,12 +5,11 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from src.banking_app.conf import settings
-from src.banking_app.models.base import Base
-
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
+from src.banking_app.conf import settings
+
 config = context.config
 
 section = config.config_ini_section
@@ -29,6 +28,8 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
+from src.banking_app.models.base import Base
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

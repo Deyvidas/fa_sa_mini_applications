@@ -1,5 +1,4 @@
 from datetime import date
-from datetime import datetime
 
 from pydantic import Field
 from pydantic import field_validator
@@ -38,6 +37,7 @@ class ClientPostDTO(Base):
         pattern=r'^[\d]{10}$',
     )
     birth_date: date = Field(
+        examples=[settings.get_today_date()],
         description='Birth date can`t be after than today.',
     )
     sex: Sex
@@ -45,7 +45,7 @@ class ClientPostDTO(Base):
     @field_validator('birth_date', mode='after')
     @classmethod
     def birth_date_not_in_future(cls, birth_date: date):
-        if birth_date <= (today := datetime.now(tz=settings.TZ).date()):
+        if birth_date <= (today := settings.get_today_date()):
             return birth_date
         raise ValueError(f'Birth date can`t be after than {today}.')
 
@@ -56,8 +56,7 @@ class ClientGetDTO(ClientPostDTO):
         examples=[24],
     )
     reg_date: date = Field(
-        default=datetime.now(tz=settings.TZ).date(),
-        description='Registration date can`t be after than today.',
+        examples=[settings.get_today_date()],
     )
     VIP_flag: bool = Field(
         examples=[False],
@@ -67,6 +66,6 @@ class ClientGetDTO(ClientPostDTO):
     @field_validator('reg_date', mode='after')
     @classmethod
     def reg_date_not_in_future(cls, reg_date: date):
-        if reg_date <= (today := datetime.now(tz=settings.TZ).date()):
+        if reg_date <= (today := settings.get_today_date()):
             return reg_date
         raise ValueError(f'Registration date can`t be after than {today}.')

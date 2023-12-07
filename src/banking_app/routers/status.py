@@ -27,7 +27,7 @@ router = APIRouter(
 )
 def get_all_statuses(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances: list[StatusDesc] = session.execute(statement).scalars().all()
+    instances: list[StatusDesc] = session.scalars(statement).all()
     return [instance.to_dto_model(StatusDescDTO) for instance in instances]
 
 
@@ -45,7 +45,7 @@ def add_status(
 ):
     statement = manager.create(**status_data.model_dump())
     try:
-        instance = session.execute(statement).scalar()
+        instance = session.scalar(statement)
         session.commit()
         return instance.to_dto_model(StatusDescDTO)
     except IntegrityError:
@@ -69,7 +69,7 @@ def get_status_with_status_number(
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(status=status_num)
-    instance = session.execute(statement).scalars().all()
+    instance = session.scalars(statement).all()
 
     if len(instance) == 1:
         return instance[0].to_dto_model(StatusDescDTO)
@@ -93,7 +93,7 @@ def delete_status_with_status_number(
         session: Session = Depends(activate_session),
 ):
     statement = manager.delete(status=status_num)
-    instance = session.execute(statement).scalar()
+    instance = session.scalar(statement)
     session.commit()
 
     if instance is not None:

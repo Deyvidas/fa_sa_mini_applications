@@ -47,7 +47,7 @@ def get_clients_filtered_by(
         VIP_flag=has_vip_status,
         sex=sex,
     )
-    instances = session.execute(statement).scalars().all()
+    instances = session.scalars(statement).all()
     return [get_client_with_full_status(instance) for instance in instances]
 
 
@@ -58,7 +58,7 @@ def get_clients_filtered_by(
 )
 def get_all_clients(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances = session.execute(statement).scalars().all()
+    instances = session.scalars(statement).all()
     return [get_client_with_full_status(instance) for instance in instances]
 
 
@@ -73,7 +73,7 @@ def add_list_of_clients(
 ):
     list_kwargs = [data.model_dump() for data in clients_list]
     statement = manager.bulk_create(list_kwargs)
-    instances = session.execute(statement).scalars().all()
+    instances = session.scalars(statement).all()
     session.commit()
     return [get_client_with_full_status(instance) for instance in instances]
 
@@ -88,7 +88,7 @@ def add_client(
         session: Session = Depends(activate_session),
 ):
     statement = manager.create(**client_data.model_dump())
-    instance: Client = session.execute(statement).scalar()
+    instance: Client = session.scalar(statement)
     session.commit()
     return get_client_with_full_status(instance)
 
@@ -106,7 +106,7 @@ def get_client_by_id(
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(client_id=client_id)
-    instance = session.execute(statement).scalars().all()
+    instance = session.scalars(statement).all()
     if len(instance) == 1:
         return get_client_with_full_status(instance[0])
     BaseExceptionRaiser(
@@ -129,7 +129,7 @@ def delete_client_with_id(
         session: Session = Depends(activate_session),
 ):
     statement = manager.delete(client_id=client_id)
-    instance = session.execute(statement).scalar()
+    instance = session.scalar(statement)
     session.commit()
 
     if instance is not None:

@@ -1,0 +1,37 @@
+[
+    {
+        "current_amount": 1000000.00,
+        "row_id": 5234,
+        "actual_flag": 0,
+        "processed_datetime": "2022-02-26 16:30:15",
+        "client_id": 1129
+    },
+    {
+        "current_amount": 900000.00,
+        "row_id": 5385,
+        "actual_flag": 0,
+        "processed_datetime": "2022-07-21 16:31:15",
+        "client_id": 1129
+    },
+    {
+        "current_amount": 1250000.00,
+        "row_id": 5476,
+        "actual_flag": 1,
+        "processed_datetime": "2023-01-11 16:30:20",
+        "client_id": 1129
+    },
+    {
+        "current_amount": 0.00,
+        "row_id": 5171,
+        "actual_flag": 1,
+        "processed_datetime": "2021-11-21 16:30:23",
+        "client_id": 1130
+    },
+    {
+        "current_amount": 1000.00,
+        "row_id": 5142,
+        "actual_flag": 0,
+        "processed_datetime": "2021-08-30 16:35:19",
+        "client_id": 1130
+    }
+]

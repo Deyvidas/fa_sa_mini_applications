@@ -5,10 +5,14 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
+from typing import TYPE_CHECKING
+
 from src.banking_app.models.base import Base
 from src.banking_app.models.base import decimal_8_2
 from src.banking_app.models.base import int_pk
-from src.banking_app.models.card import Card  # noqa: F401
+
+if TYPE_CHECKING:
+    from src.banking_app.models.card import Card
 
 
 class Transaction(Base):
@@ -23,8 +27,6 @@ class Transaction(Base):
     card_number: Mapped[str] = mapped_column(
         ForeignKey('card.card_number', ondelete='CASCADE')
     )
-    card = relationship(
-        'Card',
+    card: Mapped['Card'] = relationship(
         back_populates='transactions',
-        lazy='joined',
     )

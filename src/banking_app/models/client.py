@@ -1,18 +1,23 @@
 from datetime import date
-from datetime import datetime
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
-from src.banking_app.conf import settings
+from typing import TYPE_CHECKING
+
 from src.banking_app.models.base import Base
+from src.banking_app.models.base import date_today
 from src.banking_app.models.base import int_pk
 from src.banking_app.models.base import str_10
 from src.banking_app.models.base import str_255
-from src.banking_app.models.status import StatusDesc  # noqa: F401
 from src.banking_app.types.client import Sex
+
+if TYPE_CHECKING:
+    from src.banking_app.models.balance import Balance
+    from src.banking_app.models.card import Card
+    from src.banking_app.models.status import StatusDesc
 
 
 class Client(Base):
@@ -21,9 +26,7 @@ class Client(Base):
 
     client_id: Mapped[int_pk]
     full_name: Mapped[str_255]
-    reg_date: Mapped[date] = mapped_column(
-        default=datetime.now(tz=settings.TZ).date()
-    )
+    reg_date: Mapped[date_today]
     doc_num: Mapped[str_10]
     doc_series: Mapped[str_10]
     phone: Mapped[str_10]
@@ -32,8 +35,17 @@ class Client(Base):
     sex: Mapped[Sex]
 
     status: Mapped[int] = mapped_column(
-        ForeignKey(column='status_desc.status', ondelete='CASCADE')
+        ForeignKey(column='status_desc.status', ondelete='CASCADE'),
+        default=200,
     )
-    client_status = relationship('StatusDesc', back_populates='clients')
-    balances = relationship('Balance', back_populates='client')
-    cards = relationship('Card', back_populates='client')
+    client_status: Mapped['StatusDesc'] = relationship(
+        back_populates='clients'
+    )
+    balances: Mapped[list['Balance']] = relationship(
+        back_populates='client',
+        # Required for Balance.actual_flag updating when add new Balance.
+        order_by='Balance.processed_datetime',
+    )
+    cards: Mapped[list['Card']] = relationship(
+        back_populates='client'
+    )

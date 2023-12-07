@@ -7,9 +7,14 @@ from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import String
 
+from typing import TYPE_CHECKING
+
 from src.banking_app.models.base import Base
-from src.banking_app.models.client import Client  # noqa: F401
 from src.banking_app.types.card import CardType
+
+if TYPE_CHECKING:
+    from src.banking_app.models.client import Client
+    from src.banking_app.models.transaction import Transaction
 
 
 class Card(Base):
@@ -23,15 +28,11 @@ class Card(Base):
     processed_datetime: Mapped[datetime]
 
     client_id: Mapped[int] = mapped_column(
-        ForeignKey('client.client_id', ondelete='CASCADE')
+        ForeignKey('client.client_id', ondelete='CASCADE'),
     )
-    client = relationship(
-        'Client',
+    client: Mapped['Client'] = relationship(
         back_populates='cards',
-        lazy='joined',
     )
-    transactions = relationship(
-        'Transaction',
+    transactions: Mapped['Transaction'] = relationship(
         back_populates='card',
-        lazy='joined',
     )

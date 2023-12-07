@@ -1,3 +1,6 @@
+from datetime import date
+from datetime import datetime
+
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -7,16 +10,33 @@ from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import mapped_column
 
-from typing import Annotated, Any
+from typing import Annotated
+from typing import Any
 from typing import Type
+from typing import TypeVar
+
+from src.banking_app.conf import settings
 
 
-int_pk = Annotated[int, mapped_column(primary_key=True)]
-decimal_8_2 = Annotated[Decimal, mapped_column(DECIMAL(precision=10, scale=2))]
+date_today = Annotated[
+    date, mapped_column(default=settings.get_today_date)
+]
+datetime_now = Annotated[
+    datetime, mapped_column(default=settings.get_now_datetime)
+]
+decimal_8_2 = Annotated[
+    Decimal, mapped_column(DECIMAL(precision=10, scale=2))
+]
+int_pk = Annotated[
+    int, mapped_column(primary_key=True)
+]
 str_1 = Annotated[str, 1]
 str_10 = Annotated[str, 10]
 str_100 = Annotated[str, 100]
 str_255 = Annotated[str, 255]
+
+
+BaseModelType = TypeVar('BaseModelType', bound=BaseModel)
 
 
 class Base(DeclarativeBase):
@@ -37,10 +57,10 @@ class Base(DeclarativeBase):
     def __repr__(self) -> str:
         return str(self)
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+    def __call__(self, *args: Any, **kwargs: Any) -> None:
         return super().__init__(*args, **kwargs)
 
-    def to_dto_model(self, DTOModel: Type[BaseModel]) -> BaseModel:
+    def to_dto_model(self, DTOModel: Type[BaseModelType]) -> BaseModelType:
         fields = DTOModel.model_fields.keys()
         data = {field: getattr(self, field) for field in fields}
         return DTOModel(**data)
