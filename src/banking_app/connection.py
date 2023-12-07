@@ -9,6 +9,7 @@ engine = create_engine(
     echo=True,
     pool_size=5,
     max_overflow=10,
+    connect_args=settings.connect_args,
 )
 
 

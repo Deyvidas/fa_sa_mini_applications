@@ -1,3 +1,5 @@
+from datetime import date
+from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
@@ -41,8 +43,20 @@ class Settings(BaseSettings):
         )
 
     @property
+    def connect_args(self) -> dict[str, str]:
+        return {
+            'options': '-c timezone=utc',
+        }
+
+    @property
     def TZ(self) -> timezone:
         return TimeZone.UTC.value
+
+    def get_now_datetime(self) -> datetime:
+        return datetime.now(tz=self.TZ)
+
+    def get_today_date(self) -> date:
+        return datetime.now(tz=self.TZ).date()
 
     model_config = SettingsConfigDict(env_file=APP_DIR / '.env')
 
