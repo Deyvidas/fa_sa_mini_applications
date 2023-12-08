@@ -4,12 +4,14 @@ from abc import abstractmethod
 from typing import Any
 from typing import TypeVar
 
+from sqlalchemy import delete
 from sqlalchemy import Delete
-from sqlalchemy import Select
+from sqlalchemy import insert
 from sqlalchemy import Insert
-from sqlalchemy.sql.expression import delete
-from sqlalchemy.sql.expression import insert
-from sqlalchemy.sql.expression import select
+from sqlalchemy import select
+from sqlalchemy import Select
+from sqlalchemy import update
+from sqlalchemy import Update
 
 from src.banking_app.conf import NotSpecifiedParam
 from src.banking_app.models.base import Base
@@ -64,35 +66,64 @@ class CreateManager(AbstractManager):
         return statement
 
 
-class DeleteManager(AbstractManager):
+class UpdateManager(AbstractManager):
 
-    def delete(self, **kwargs: dict[str, Any]) -> Delete:
+    def update(
+            self,
+            *,
+            where: dict[str, Any],
+            set_value: dict[str, Any],
+    ) -> Update:
+        conditions = KwargsParser().parse_kwargs(
+            module_name=__name__,
+            model=self.model,
+            **where,
+        )
         statement = (
-            delete(self.model).
-            filter_by(**kwargs).
+            update(self.model).
+            where(*eval(conditions)).
+            values(**set_value).
             returning(self.model)
         )
         return statement
 
 
-AllStatements = TypeVar('AllStatements', Delete, Select, Insert)
+class DeleteManager(AbstractManager):
+
+    def delete(self, **where) -> Delete:
+        conditions = KwargsParser().parse_kwargs(
+            module_name=__name__,
+            model=self.model,
+            **where,
+        )
+        statement = (
+            delete(self.model).
+            where(*eval(conditions)).
+            returning(self.model)
+        )
+        return statement
+
+
+AllStatements = TypeVar('AllStatements', Delete, Select, Insert, Update)
 
 
 class BaseManager(SelectManager,
                   CreateManager,
-                  DeleteManager):
+                  UpdateManager,
+                  DeleteManager,):
 
     def _enrich_statement(self, statement: AllStatements) -> AllStatements:
         """Enrich passed statement and return enriched statement."""
         return statement
 
 
-SelCreStmt = TypeVar('SelCreStmt', Select, Insert)
+SeCrUpStmt = TypeVar('SeCrUpStmt', Select, Insert, Update)
 
 
-class SelectCreateManager(SelectManager,
-                          CreateManager,):
+class SeCrUpManager(SelectManager,
+                    CreateManager,
+                    UpdateManager,):
 
-    def _enrich_statement(self, statement: SelCreStmt) -> SelCreStmt:
+    def _enrich_statement(self, statement: SeCrUpStmt) -> SeCrUpStmt:
         """Enrich passed statement and return enriched statement."""
         return statement
