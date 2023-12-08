@@ -101,7 +101,7 @@ def add_list_of_balances(
         balances: list[Balance] = session.scalars(statement).unique().all()
         clients = set(balance.client for balance in balances)
         [client.actualize_balance() for client in clients]
-        # session.commit()
+        session.commit()
         return [get_balance_dto_model(balance) for balance in balances]
     except IntegrityError as error:
         session.rollback()
@@ -127,7 +127,7 @@ def add_balance(
     try:
         instance: Balance = session.scalar(statement)
         instance.client.actualize_balance()
-        # session.commit()
+        session.commit()
         return get_balance_dto_model(instance)
     except IntegrityError as error:
         session.rollback()
