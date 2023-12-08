@@ -29,29 +29,6 @@ router = APIRouter(
 )
 
 
-def update_client_balance_flag(instance: Client) -> None:
-    """
-    Leave Balance.actual_flag=True for most recently Client.balances instance.
-    """
-    # WHERE Balance.actual_flag = true;
-    actual_balances: list[Balance] = list(filter(
-        lambda balance: balance.actual_flag is True, instance.balances
-    ))
-    if len(actual_balances) == 1:
-        return
-    # ORDER BY Balance.processed_datetime ASC;
-    actual_balances = sorted(
-        actual_balances,
-        key=lambda balance: balance.processed_datetime,
-    )
-    # SET Balance.actual_flag = false;
-    last_added_balance = actual_balances[-1]
-    for balance in actual_balances:
-        if balance == last_added_balance or balance.actual_flag is False:
-            continue
-        setattr(balance, 'actual_flag', False)
-
-
 def raise_client_not_found(error: IntegrityError) -> NoReturn:
     """Parse IntegrityError message and raise exception."""
     error_message = error.orig.diag.message_detail
@@ -91,7 +68,7 @@ def get_balances_with_amount_between(
     statement = manager.filter(
         current_amount__between=(min_amount, max_amount)
     )
-    instances = session.scalars(statement).all()
+    instances = session.scalars(statement).unique().all()
     return [get_balance_dto_model(instance) for instance in instances]
 
 
@@ -102,7 +79,7 @@ def get_balances_with_amount_between(
 )
 def get_all_balances(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances = session.scalars(statement).all()
+    instances = session.scalars(statement).unique().all()
     return [get_balance_dto_model(instance) for instance in instances]
 
 
@@ -121,11 +98,11 @@ def add_list_of_balances(
     list_kwargs = [balance.model_dump() for balance in balances_list]
     statement = manager.bulk_create(list_kwargs)
     try:
-        instances: list[Balance] = session.scalars(statement).all()
-        clients = set(instance.client for instance in instances)
-        [update_client_balance_flag(client) for client in clients]
+        balances: list[Balance] = session.scalars(statement).unique().all()
+        clients = set(balance.client for balance in balances)
+        [client.actualize_balance() for client in clients]
         # session.commit()
-        return [get_balance_dto_model(instance) for instance in instances]
+        return [get_balance_dto_model(balance) for balance in balances]
     except IntegrityError as error:
         session.rollback()
         if 'client_id' in error.orig.diag.message_detail:
@@ -148,8 +125,8 @@ def add_balance(
 ):
     statement = manager.create(**balance_data.model_dump())
     try:
-        instance: Balance = session.execute(statement).scalar()
-        update_client_balance_flag(instance.client)
+        instance: Balance = session.scalar(statement)
+        instance.client.actualize_balance()
         # session.commit()
         return get_balance_dto_model(instance)
     except IntegrityError as error:
