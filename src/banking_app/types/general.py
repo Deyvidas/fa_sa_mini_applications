@@ -10,7 +10,7 @@ getcontext().prec = 2
 MoneyAmount = Annotated[
     Decimal,
     PlainSerializer(
-        lambda x: Decimal(x),
+        lambda x: float(x),
         return_type=float,
         when_used='json',
     )
