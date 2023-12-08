@@ -79,7 +79,7 @@ def get_balance_dto_model(instance: Balance) -> BalanceGetDTO:
 
 
 @router.get(
-    path='/list-with-balances-between',
+    path='/list-balances-between',
     status_code=status.HTTP_200_OK,
     response_model=list[BalanceGetDTO],
 )

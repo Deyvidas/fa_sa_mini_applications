@@ -67,7 +67,7 @@ class KwargsParser:
         """
 
         if kwargs == dict():
-            return 'True'
+            return '(True,)'
 
         model_name, kwargs = self._set_dependencies_in_modules(
             modules=[__name__, module_name],
