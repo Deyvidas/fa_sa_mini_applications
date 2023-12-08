@@ -62,7 +62,7 @@ class KwargsParser:
         Use repr function, all required modules are imported into module!
 
         ```python
-        statement = select(Client).where(*repr(condition))
+        statement = select(Client).where(*repr(conditions))
         ```
         """
 
@@ -169,16 +169,68 @@ class KwargsParser:
             return f'({', '.join(value)},)'
 
         if value_type.__module__ == object.__module__:  # If is builtins;
-            return value
+            return self._get_repr_or_str(value)
         else:
             attr_type_alias = f'{prefix}_{value_type.__name__}'
             [setattr(mod, attr_type_alias, value_type) for mod in modules]
             attr_type_origin = getattr(modules[0], attr_type_alias).__name__
-            try:
-                repr_ = repr(value).replace(attr_type_origin, attr_type_alias)
-                eval(repr_)
-                value = repr_
-            except SyntaxError:
-                str_ = str(value).replace(attr_type_origin, attr_type_alias)
-                value = str_
+            value = self._get_repr_or_str(
+                value,
+                old_type=attr_type_origin,
+                new_type=attr_type_alias,
+            )
             return value
+
+    def _get_repr_or_str(
+            self,
+            value: Any,
+            *,
+            old_type: str = '',
+            new_type: str = '',
+    ) -> str:
+        """
+        If repr() return valid to evaluation string return them, else return
+        str() representation.
+
+        ```python
+        var1 = repr(SomeEnum.VALUE1)
+        var2 = repr(datetime.utcnow())
+
+        print(f'{var1=}\\n{var2=}')
+        >>> var1="<SomeEnum.VALUE1: 'value1'>"
+        >>> var2='datetime.datetime(2023, 12, 8, 8, 12, 58, 751804)'
+
+        eval(var1)
+        >>> Traceback (most recent call last):
+        File "<string>", line 1, in <module>
+        File "<string>", line 1
+            <SomeEnum.VALUE1: 'value1'>
+            ^
+        SyntaxError: invalid syntax
+
+        eval(var2)
+        >>> datetime.datetime(2023, 12, 8, 8, 12, 58, 751804)
+        ```
+
+        in this case if we try to evaluate var1 expression raises SyntaxError
+        and we cant put this string in expression, we must transform it to str.
+
+        ```python
+        var1 = str(SomeEnum.VALUE1)
+
+        print(f'{var1=}')
+        >>> var1='SomeEnum.VALUE1'
+
+        eval(var1)
+        >>> <SomeEnum.VALUE1: 'value1'>
+        ```
+        """
+        try:
+            repr_ = repr(value).replace(old_type, new_type, 1)
+            eval(repr_)
+            value = repr_
+        except SyntaxError:
+            str_ = str(value).replace(old_type, new_type, 1)
+            eval(str_)
+            value = str_
+        return value
