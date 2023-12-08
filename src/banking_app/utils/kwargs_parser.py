@@ -49,7 +49,7 @@ class KwargsParser:
         )
 
         print(condition)
-        >>> "_KwargsParser_Client.sex == _KwargsParser_Sex.MALE, _KwargsParser_Client.name == 'Some', _KwargsParser_Client.age.in_([34, 21]), _KwargsParser_Client.weight >= 80"
+        >>> "(_KwargsParser_Client.sex == _KwargsParser_Sex.MALE, _KwargsParser_Client.name == 'Some', _KwargsParser_Client.age.in_((34, 21,)), _KwargsParser_Client.weight >= 80,)"
 
         print(globals())
         >>> {
