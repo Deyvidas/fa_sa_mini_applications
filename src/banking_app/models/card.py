@@ -31,8 +31,10 @@ class Card(Base):
         ForeignKey('client.client_id', ondelete='CASCADE'),
     )
     client: Mapped['Client'] = relationship(
+        lazy='joined',
         back_populates='cards',
     )
-    transactions: Mapped['Transaction'] = relationship(
+    transactions: Mapped[list['Transaction']] = relationship(
+        lazy='joined',
         back_populates='card',
     )

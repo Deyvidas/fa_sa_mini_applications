@@ -18,6 +18,7 @@ class StatusDesc(Base):
     status: Mapped[int_pk]
     description: Mapped[str_100]
 
-    clients: Mapped['Client'] = relationship(
+    clients: Mapped[list['Client']] = relationship(
+        lazy='joined',
         back_populates='client_status',
     )

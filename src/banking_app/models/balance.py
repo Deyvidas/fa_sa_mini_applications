@@ -29,5 +29,6 @@ class Balance(Base):
         ForeignKey('client.client_id', ondelete='CASCADE'),
     )
     client: Mapped['Client'] = relationship(
+        lazy='joined',
         back_populates='balances',
     )

@@ -28,5 +28,6 @@ class Transaction(Base):
         ForeignKey('card.card_number', ondelete='CASCADE')
     )
     card: Mapped['Card'] = relationship(
+        lazy='joined',
         back_populates='transactions',
     )

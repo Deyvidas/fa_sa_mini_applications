@@ -27,7 +27,7 @@ router = APIRouter(
 )
 def get_all_statuses(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances: list[StatusDesc] = session.scalars(statement).all()
+    instances: list[StatusDesc] = session.scalars(statement).unique().all()
     return [instance.to_dto_model(StatusDescDTO) for instance in instances]
 
 
@@ -69,7 +69,7 @@ def get_status_with_status_number(
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(status=status_num)
-    instance = session.scalars(statement).all()
+    instance = session.scalars(statement).unique().all()
 
     if len(instance) == 1:
         return instance[0].to_dto_model(StatusDescDTO)
