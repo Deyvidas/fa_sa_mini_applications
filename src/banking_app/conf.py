@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     DB_NAME: str
     DB_USER: str
     DB_PASS: str
+    ENGINE_ECHO: bool = True
+    ENGINE_POOL_SIZE: int = 5
+    ENGINE_MAX_OVERFLOW: int = 10
+    SESSION_AUTOFLUSH: bool = True
+    SESSION_EXPIRE_ON_COMMIT: bool = False
 
     @property
     def DB_URL(self) -> str:
@@ -52,13 +57,19 @@ class Settings(BaseSettings):
     def TZ(self) -> timezone:
         return TimeZone.UTC.value
 
-    def get_now_datetime(self) -> datetime:
+    def get_datetime_now(self) -> datetime:
         return datetime.now(tz=self.TZ)
 
-    def get_today_date(self) -> date:
+    def get_date_today(self) -> date:
         return datetime.now(tz=self.TZ).date()
 
     model_config = SettingsConfigDict(env_file=APP_DIR / '.env')
 
 
+class TestSettings(Settings):
+
+    model_config = SettingsConfigDict(env_file=APP_DIR / '.env.test')
+
+
 settings = Settings()  # type: ignore[call-arg]
+test_settings = TestSettings()  # type: ignore[call-arg]
