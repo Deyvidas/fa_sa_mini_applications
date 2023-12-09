@@ -19,10 +19,10 @@ from src.banking_app.conf import settings
 
 
 date_today = Annotated[
-    date, mapped_column(default=settings.get_today_date)
+    date, mapped_column(default=settings.get_date_today)
 ]
 datetime_now = Annotated[
-    datetime, mapped_column(default=settings.get_now_datetime)
+    datetime, mapped_column(default=settings.get_datetime_now)
 ]
 decimal_8_2 = Annotated[
     Decimal, mapped_column(DECIMAL(precision=10, scale=2))

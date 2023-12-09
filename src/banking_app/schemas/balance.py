@@ -33,7 +33,7 @@ class BalanceGetDTO(BalancePostDTO):
     row_id: int
     actual_flag: bool
     processed_datetime: datetime = Field(
-        examples=[settings.get_now_datetime()],
+        examples=[settings.get_datetime_now()],
     )
     client: Union[ClientGetDTO, Client]
 
