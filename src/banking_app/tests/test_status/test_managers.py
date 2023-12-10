@@ -9,6 +9,7 @@ from src.banking_app.models.status import StatusDesc
 from src.banking_app.tests.test_status.conftest import StatusDTO
 
 
+@pytest.mark.run(order=1.001)
 @pytest.mark.usefixtures('create_and_drop_tables')
 class TestManager:
     manager = StatusManager()

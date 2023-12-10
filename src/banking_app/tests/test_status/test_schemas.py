@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from src.banking_app.schemas.status import StatusDescDTO
 
 
+@pytest.mark.run(order=0.001)
 class TestStatusField:
 
     @pytest.mark.parametrize(
@@ -64,6 +65,7 @@ class TestStatusField:
         assert len(error) == 1
 
 
+@pytest.mark.run(order=0.002)
 class TestDescriptionField:
 
     @pytest.mark.parametrize(

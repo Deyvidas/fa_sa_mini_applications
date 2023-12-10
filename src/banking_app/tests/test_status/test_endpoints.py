@@ -12,6 +12,7 @@ from src.banking_app.models.status import StatusDesc
 client = TestClient(banking_app)
 
 
+@pytest.mark.run(order=2.001)
 @pytest.mark.usefixtures('create_and_drop_tables')
 class TestGET:
 
