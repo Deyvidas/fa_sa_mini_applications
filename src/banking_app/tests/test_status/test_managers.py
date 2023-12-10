@@ -54,17 +54,22 @@ class TestManager:
             pytest.param(
                 dict(),
                 'lambda s: True',
-                id='filter()'
+                id='filter without conditions'
             ),
             pytest.param(
                 dict(status=300),
                 'lambda s: s.status == 300',
-                id='filter(status=<int>)'
+                id='filter with single base condition'
             ),
             pytest.param(
                 dict(status__in=(100, 400, 900)),
                 'lambda s: s.status in (100, 400, 900)',
-                id='filter(status__in=(<int>, ...))'
+                id='filter with single IN condition'
+            ),
+            pytest.param(
+                dict(status__between=(200, 400)),
+                'lambda s: s.status in range(200, 401)',
+                id='filter with single BETWEEN condition'
             ),
             pytest.param(
                 dict(
@@ -75,7 +80,7 @@ class TestManager:
                     'lambda s: s.status == 300 and '
                     's.description == "Test description 300"'
                 ),
-                id='filter(status=<int>, description=<str>)'
+                id='filter with multi base conditions'
             ),
             pytest.param(
                 dict(
@@ -86,7 +91,7 @@ class TestManager:
                     'lambda s: s.status in (100, 400, 900) and '
                     's.description in ("Test description 400","Test description 900")'  # noqa: E501
                 ),
-                id='filter(status__in=(<int>, ...), description__in=(<str>, ...))'  # noqa: E501
+                id='filter with multi IN conditions'
             ),
         ),
     )
@@ -109,3 +114,42 @@ class TestManager:
         for instance, estimated in zip(instances, estimated_list):
             assert instance.status == estimated.status
             assert instance.description == estimated.description
+
+    @pytest.mark.parametrize(
+        argnames='condition,values',
+        argvalues=(
+            pytest.param(
+                dict(status=300),
+                dict(description='New description.'),
+                id='update single object'
+            ),
+            pytest.param(
+                dict(status__between=(200, 500)),
+                dict(description='New description.'),
+                id='update multiple object'
+            ),
+        ),
+    )
+    def test_update(
+            self,
+            session: Session,
+            create_statuses: list[StatusDesc],
+            condition: dict[str, Any],
+            values: dict[str, Any],
+    ):
+        # Count amount of statuses which must be updated.
+        statement = self.manager.filter(**condition)
+        count = len(session.scalars(statement).unique().all())
+
+        statement = self.manager.update(where=condition, set_value=values)
+        updated: list[StatusDesc] = session.scalars(statement).unique().all()
+        session.commit()
+        assert len(updated) == count
+
+        # Make sure than objects are updated in DB.
+        updated_statuses = [u.status for u in updated]
+        statement = self.manager.filter(**dict(status__in=updated_statuses))
+        updated = session.scalars(statement).unique().all()
+        for field, new_value in values.items():
+            for status in updated:
+                assert getattr(status, field) == new_value
