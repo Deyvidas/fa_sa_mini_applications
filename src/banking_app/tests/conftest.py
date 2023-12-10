@@ -60,17 +60,19 @@ def get_url_db_name(engine: Engine) -> UrlDbname:
 
 def execute_shell_command(command: str, engine: Engine) -> None:
     result = subprocess.run(command, shell=True, capture_output=True)
+    stdout = result.stdout.decode('utf8').strip().replace('\n', '\n\t')
+    stderr = result.stderr.decode('utf8').strip().replace('\n', '\n\t')
 
     if result.returncode == 0:
-        stdout = result.stdout.decode('utf8').replace('\n', '\n\t')
         message = (
             f'\nSUCCESS:\n\tCommand was successfully executed!'
             f'\nCOMMAND:\n\t{command}'
-            f'\n OUTPUT:\n\n{stdout}'
+            f'\n OUTPUT:\n\t{stdout}'
         )
+        if stderr != '':
+            message += f'\n   INFO:\n\t{stderr}'
         engine.logger.info(message)
     else:
-        stderr = result.stderr.decode('utf8').replace('\n', '\n\t')
         message = (
             f'\n  ERROR:\n\tIn time execution of command an error occurred.'
             f'\nCOMMAND:\n\t{command}'
@@ -122,7 +124,7 @@ def pytest_sessionfinish(session, exitstatus):
     """After than all tests are finished we drop tables and DB."""
 
     message = f' Tests are finished at: {test_settings.get_datetime_now()} '
-    print('\n\n{:*^79}\n\n'.format(message))
+    print('\n\n\n{:*^79}\n\n'.format(message))
 
     with session_obj() as connection:
         # Drop all tables.
