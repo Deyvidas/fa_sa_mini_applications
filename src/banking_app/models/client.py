@@ -18,7 +18,7 @@ from src.banking_app.types.client import Sex
 if TYPE_CHECKING:
     from src.banking_app.models.balance import Balance
     from src.banking_app.models.card import Card
-    from src.banking_app.models.status import StatusDesc
+    from src.banking_app.models.status import Status
 
 
 class Client(Base):
@@ -40,7 +40,7 @@ class Client(Base):
         ForeignKey(column='status_desc.status', ondelete='CASCADE'),
         default=200,
     )
-    client_status: Mapped['StatusDesc'] = relationship(
+    client_status: Mapped['Status'] = relationship(
         lazy='joined',
         back_populates='clients',
     )

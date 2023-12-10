@@ -11,11 +11,11 @@ from sqlalchemy.orm.session import Session
 
 from src.banking_app.main import banking_app
 from src.banking_app.managers.status import StatusManager
-from src.banking_app.models.status import StatusDesc
+from src.banking_app.models.status import Status
 
 
-LS = NewType('LS', list[StatusDesc])
-S = NewType('S', StatusDesc)
+LS = NewType('LS', list[Status])
+S = NewType('S', Status)
 
 
 @pytest.mark.usefixtures('create_and_drop_tables')
@@ -62,7 +62,7 @@ class TestRetrieve(BaseTest):
             response = self.client.get(f'/status/{unexist_num}')
             assert response.status_code == status_code
 
-            msg = self.not_found_msg.format(StatusDesc.__name__, unexist_num)
+            msg = self.not_found_msg.format(Status.__name__, unexist_num)
             assert response.json() == {'detail': msg}
             return
 
@@ -108,7 +108,7 @@ class TestPost(BaseTest):
         )
         response = self.client.post('/status', json=invalid_status)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        msg = self.not_unique_msg.format(StatusDesc.__name__, invalid_status['status'])  # noqa: E501
+        msg = self.not_unique_msg.format(Status.__name__, invalid_status['status'])  # noqa: E501
         assert response.json() == {'detail': msg}
 
 
@@ -147,7 +147,7 @@ class TestDelete(BaseTest):
         # Then try DELETE not existent status.
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
-        msg = self.not_found_msg.format(StatusDesc.__name__, status_to_delete.status)  # noqa: E501
+        msg = self.not_found_msg.format(Status.__name__, status_to_delete.status)  # noqa: E501
         assert response.json() == {'detail': msg}
 
         # Check than unsuccess deleting does't change len&attributes in DB.

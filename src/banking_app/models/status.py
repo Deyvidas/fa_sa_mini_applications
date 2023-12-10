@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from src.banking_app.models.client import Client
 
 
-class StatusDesc(Base):
+class Status(Base):
     __tablename__ = 'status_desc'
     repr_fields = ('status', 'description')
 

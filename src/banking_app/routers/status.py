@@ -6,7 +6,7 @@ from sqlalchemy.orm.session import Session
 
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.status import StatusManager
-from src.banking_app.models.status import StatusDesc
+from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import StatusCreate
 from src.banking_app.schemas.status import StatusRetrieve
 from src.banking_app.schemas.status import StatusUpdate
@@ -29,7 +29,7 @@ router = APIRouter(
 )
 def get_all_statuses(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances: list[StatusDesc] = session.scalars(statement).unique().all()
+    instances: list[Status] = session.scalars(statement).unique().all()
     return [instance.to_dto_model(StatusRetrieve) for instance in instances]
 
 
@@ -47,12 +47,12 @@ def add_status(
 ):
     statement = manager.create(**status_data.model_dump())
     try:
-        instance: StatusDesc = session.scalar(statement)
+        instance: Status = session.scalar(statement)
         session.commit()
         return instance.to_dto_model(StatusRetrieve)
     except IntegrityError:
         BaseExceptionRaiser(
-            model=StatusDesc,
+            model=Status,
             status=status.HTTP_400_BAD_REQUEST,
             kwargs=dict(status=status_data.status),
         ).raise_exception()
@@ -71,12 +71,12 @@ def get_status_with_status_number(
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(status=status_num)
-    instance: list[StatusDesc] = session.scalars(statement).unique().all()
+    instance: list[Status] = session.scalars(statement).unique().all()
 
     if len(instance) == 1:
         return instance[0].to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
-        model=StatusDesc,
+        model=Status,
         status=status.HTTP_404_NOT_FOUND,
         kwargs=dict(status=status_num)
     ).raise_exception()
@@ -114,7 +114,7 @@ def delete_status_with_status_number(
     if instance is not None:
         return instance.to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
-        model=StatusDesc,
+        model=Status,
         status=status.HTTP_404_NOT_FOUND,
         kwargs=dict(status=status_num)
     ).raise_exception()

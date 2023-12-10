@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm.session import Session
 
 from src.banking_app.managers.status import StatusManager
-from src.banking_app.models.status import StatusDesc
+from src.banking_app.models.status import Status
 
 
 manager = StatusManager()
@@ -37,7 +37,7 @@ def statuses() -> list[StatusDTO]:
 def create_statuses(
         session: Session,
         statuses: list[StatusDTO],
-) -> list[StatusDesc]:
+) -> list[Status]:
     list_kwargs = [status.model_dump() for status in statuses]
     statement = manager.bulk_create(list_kwargs)
     session.scalars(statement).unique().all()

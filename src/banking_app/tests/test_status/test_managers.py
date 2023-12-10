@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.orm.session import Session
 
 from src.banking_app.managers.status import StatusManager
-from src.banking_app.models.status import StatusDesc
+from src.banking_app.models.status import Status
 from src.banking_app.tests.test_status.conftest import StatusDTO
 
 
@@ -13,7 +13,7 @@ from src.banking_app.tests.test_status.conftest import StatusDTO
 @pytest.mark.usefixtures('create_and_drop_tables')
 class TestManager:
     manager = StatusManager()
-    model = StatusDesc
+    model = Status
 
     def test_create(
             self,
@@ -23,7 +23,7 @@ class TestManager:
         status = statuses[0]
 
         create_stmt = self.manager.create(**status.model_dump())
-        instance: StatusDesc = session.scalar(create_stmt)
+        instance: Status = session.scalar(create_stmt)
         session.commit()
 
         assert instance.status == status.status
@@ -36,7 +36,7 @@ class TestManager:
     ):
         list_kwargs = [status.model_dump() for status in statuses]
         bulk_create_stmt = self.manager.bulk_create(list_kwargs)
-        instances: list[StatusDesc] = session.scalars(bulk_create_stmt).unique().all()  # noqa: E501
+        instances: list[Status] = session.scalars(bulk_create_stmt).unique().all()  # noqa: E501
         session.commit()
 
         assert len(instances) == len(statuses)
@@ -98,12 +98,12 @@ class TestManager:
     def test_filter(
             self,
             session: Session,
-            create_statuses: list[StatusDesc],
+            create_statuses: list[Status],
             filter_kwargs: dict[str, Any],
             filter_expr: str,
     ):
         statement = self.manager.filter(**filter_kwargs)
-        instances: list[StatusDesc] = session.scalars(statement).unique().all()
+        instances: list[Status] = session.scalars(statement).unique().all()
         estimated_list = list(filter(eval(filter_expr), create_statuses))
 
         assert len(instances) == len(estimated_list)
@@ -133,7 +133,7 @@ class TestManager:
     def test_update(
             self,
             session: Session,
-            create_statuses: list[StatusDesc],
+            create_statuses: list[Status],
             condition: dict[str, Any],
             values: dict[str, Any],
     ):
@@ -142,7 +142,7 @@ class TestManager:
         count = len(session.scalars(statement).unique().all())
 
         statement = self.manager.update(where=condition, set_value=values)
-        updated: list[StatusDesc] = session.scalars(statement).unique().all()
+        updated: list[Status] = session.scalars(statement).unique().all()
         session.commit()
         assert len(updated) == count
 
