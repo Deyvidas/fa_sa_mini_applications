@@ -13,10 +13,8 @@ from src.banking_app.connection import activate_session
 from src.banking_app.managers.balance import BalanceManager
 from src.banking_app.models.balance import Balance
 from src.banking_app.models.client import Client
-from src.banking_app.schemas.balance import BalanceGetDTO
-from src.banking_app.schemas.balance import BalancePostDTO
-from src.banking_app.schemas.client import ClientGetDTO
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas.balance import BalanceCreate
+from src.banking_app.schemas.balance import BalanceRetrieve
 from src.banking_app.types.general import MoneyAmount
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import NotFoundMessage
@@ -45,20 +43,10 @@ def raise_client_not_found(error: IntegrityError) -> NoReturn:
     ).raise_exception()
 
 
-def get_balance_dto_model(instance: Balance) -> BalanceGetDTO:
-    balance_model = instance.to_dto_model(BalanceGetDTO)
-    client_model = balance_model.client.to_dto_model(ClientGetDTO)
-    status_model = balance_model.client.client_status.to_dto_model(StatusRetrieve)  # noqa: E501
-
-    balance_model.client = client_model
-    balance_model.client.status = status_model
-    return balance_model
-
-
 @router.get(
     path='/list-balances-between',
     status_code=status.HTTP_200_OK,
-    response_model=list[BalanceGetDTO],
+    response_model=list[BalanceRetrieve],
 )
 def get_balances_with_amount_between(
         min_amount: MoneyAmount,
@@ -68,31 +56,31 @@ def get_balances_with_amount_between(
     statement = manager.filter(
         current_amount__between=(min_amount, max_amount)
     )
-    instances = session.scalars(statement).unique().all()
-    return [get_balance_dto_model(instance) for instance in instances]
+    instances: list[Balance] = session.scalars(statement).unique().all()
+    return [instance.to_dto_model(BalanceRetrieve) for instance in instances]
 
 
 @router.get(
     path='/list',
     status_code=status.HTTP_200_OK,
-    response_model=list[BalanceGetDTO],
+    response_model=list[BalanceRetrieve],
 )
 def get_all_balances(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances = session.scalars(statement).unique().all()
-    return [get_balance_dto_model(instance) for instance in instances]
+    instances: list[Balance] = session.scalars(statement).unique().all()
+    return [instance.to_dto_model(BalanceRetrieve) for instance in instances]
 
 
 @router.post(
     path='/list',
     status_code=status.HTTP_201_CREATED,
-    response_model=list[BalanceGetDTO],
+    response_model=list[BalanceRetrieve],
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
 )
 def add_list_of_balances(
-        balances_list: list[BalancePostDTO],
+        balances_list: list[BalanceCreate],
         session: Session = Depends(activate_session),
 ):
     list_kwargs = [balance.model_dump() for balance in balances_list]
@@ -102,7 +90,7 @@ def add_list_of_balances(
         clients = set(balance.client for balance in balances)
         [client.actualize_balance() for client in clients]
         session.commit()
-        return [get_balance_dto_model(balance) for balance in balances]
+        return [balance.to_dto_model(BalanceRetrieve) for balance in balances]
     except IntegrityError as error:
         session.rollback()
         if 'client_id' in error.orig.diag.message_detail:
@@ -114,13 +102,13 @@ def add_list_of_balances(
 @router.post(
     path='/',
     status_code=status.HTTP_201_CREATED,
-    response_model=BalanceGetDTO,
+    response_model=BalanceRetrieve,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
 )
 def add_balance(
-        balance_data: BalancePostDTO,
+        balance_data: BalanceCreate,
         session: Session = Depends(activate_session),
 ):
     statement = manager.create(**balance_data.model_dump())
@@ -128,7 +116,7 @@ def add_balance(
         instance: Balance = session.scalar(statement)
         instance.client.actualize_balance()
         session.commit()
-        return get_balance_dto_model(instance)
+        return instance.to_dto_model(BalanceRetrieve)
     except IntegrityError as error:
         session.rollback()
         if 'client_id' in error.orig.diag.message_detail:

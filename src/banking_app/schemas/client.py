@@ -93,17 +93,6 @@ class StatusAsModelField(Base):
     client_status: StatusRetrieve
 
 
-class ClientCreate(
-        DocSerField,
-        DocNumField,
-        PhoneField,
-        SexField,
-        BirthDateField,
-        FullNameField,
-):
-    ...
-
-
 class ClientRetrieve(
         StatusAsModelField,
         VipFlagField,
@@ -115,5 +104,16 @@ class ClientRetrieve(
         BirthDateField,
         FullNameField,
         ClientIdField,
+):
+    ...
+
+
+class ClientCreate(
+        DocSerField,
+        DocNumField,
+        PhoneField,
+        SexField,
+        BirthDateField,
+        FullNameField,
 ):
     ...
