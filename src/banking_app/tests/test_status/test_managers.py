@@ -1,12 +1,13 @@
 from typing import Any
+
 import pytest
 
 from pydantic import BaseModel
 
 from sqlalchemy.orm.session import Session
 
-from src.banking_app.models.status import StatusDesc
 from src.banking_app.managers.status import StatusManager
+from src.banking_app.models.status import StatusDesc
 
 
 class StatusDTO(BaseModel):
@@ -51,7 +52,7 @@ class TestManager:
         status = statuses[0]
 
         create_stmt = self.manager.create(**status.model_dump())
-        instance = session.scalar(create_stmt)  # type: StatusDesc
+        instance: StatusDesc = session.scalar(create_stmt)
         session.commit()
 
         assert instance.status == status.status
@@ -64,7 +65,7 @@ class TestManager:
     ):
         list_kwargs = [status.model_dump() for status in statuses]
         bulk_create_stmt = self.manager.bulk_create(list_kwargs)
-        instances = session.scalars(bulk_create_stmt).unique().all()  # type: list[StatusDesc]  # noqa: E501
+        instances: list[StatusDesc] = session.scalars(bulk_create_stmt).unique().all()  # noqa: E501
         session.commit()
 
         assert len(instances) == len(statuses)

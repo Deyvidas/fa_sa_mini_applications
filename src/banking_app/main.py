@@ -9,7 +9,7 @@ from src.banking_app.routers.transaction import router as router_transaction
 
 banking_app = FastAPI(title='Banking application')
 banking_app.include_router(router_balance)
-# banking_app.include_router(router_card)
+banking_app.include_router(router_card)
 banking_app.include_router(router_client)
-# banking_app.include_router(router_status_description)
-# banking_app.include_router(router_transaction)
+banking_app.include_router(router_status_description)
+banking_app.include_router(router_transaction)

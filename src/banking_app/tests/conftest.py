@@ -9,6 +9,8 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.session import sessionmaker
 
 from src.banking_app.conf import test_settings
+from src.banking_app.connection import activate_session
+from src.banking_app.main import banking_app
 from src.banking_app.models.base import Base
 
 
@@ -26,6 +28,76 @@ session_obj = sessionmaker(
     autoflush=test_settings.SESSION_AUTOFLUSH,
     expire_on_commit=test_settings.SESSION_EXPIRE_ON_COMMIT,
 )
+
+
+def pytest_sessionstart(session):
+    """Before than tests session is started create DB and tables."""
+
+    # Drop db if exist and then create db.
+    drop_db(engine)
+    create_db(engine)
+
+    with session_obj() as connection:
+        # Drop all tables if exists and then create tables.
+        drop_tables(engine, connection)
+        create_tables(engine, connection)
+
+    message = f' Tests are started at: {test_settings.get_datetime_now()} '
+    print('\n\n{:*^79}\n\n'.format(message))
+
+
+@pytest.fixture(scope='session')
+def session() -> Session:
+    """Initialize context into sqlalchemy.orm.session_obj."""
+    yield get_session_for_tests().send(None)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def switch_db_for_fastapi_testing() -> None:
+    """
+    Switch used database into endpoints of application to test_db.
+
+    Change all args of dependencies in endpoints from Depends(activate_session)
+    to Depends(get_session_for_tests).
+
+    Is required for example for tests where make changes of DB state, and we
+    don't wont than main DB was changed.
+    """
+    banking_app.dependency_overrides[activate_session] = get_session_for_tests
+
+
+@pytest.fixture(autouse=True)
+def create_and_drop_tables(session: Session) -> None:
+    engine.echo = False  # OFF echo between test because is cumbersome.
+
+    try:
+        drop_tables(engine, session)
+        create_tables(engine, session)
+        yield
+        drop_tables(engine, session)
+    except Exception:
+        pass
+    finally:
+        engine.echo = test_settings.ENGINE_ECHO  # After reset value.
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """After than all tests are finished we drop tables and DB."""
+
+    message = f' Tests are finished at: {test_settings.get_datetime_now()} '
+    print('\n\n\n{:*^79}\n\n'.format(message))
+
+    with session_obj() as connection:
+        # Drop all tables.
+        drop_tables(engine, connection)
+
+    # Drop db.
+    drop_db(engine)
+
+
+def get_session_for_tests():
+    with session_obj() as session:
+        yield session
 
 
 class UrlDbname(NamedTuple):
@@ -80,58 +152,6 @@ def execute_shell_command(command: str, engine: Engine) -> None:
         )
         engine.logger.error(message)
         raise ProcessLookupError(message)
-
-
-def pytest_sessionstart(session):
-    """Before than tests session is started create DB and tables."""
-
-    # Drop db if exist and then create db.
-    drop_db(engine)
-    create_db(engine)
-
-    with session_obj() as connection:
-        # Drop all tables if exists and then create tables.
-        drop_tables(engine, connection)
-        create_tables(engine, connection)
-
-    message = f' Tests are started at: {test_settings.get_datetime_now()} '
-    print('\n\n{:*^79}\n\n'.format(message))
-
-
-@pytest.fixture(scope='session')
-def session() -> Session:
-    """Initialize context into sqlalchemy.orm.session_obj."""
-    with session_obj() as session:
-        yield session
-
-
-@pytest.fixture(autouse=True)
-def create_and_drop_tables(session: Session) -> None:
-    engine.echo = False  # OFF echo between test because is cumbersome.
-
-    try:
-        drop_tables(engine, session)
-        create_tables(engine, session)
-        yield
-        drop_tables(engine, session)
-    except Exception:
-        pass
-    finally:
-        engine.echo = test_settings.ENGINE_ECHO  # After reset value.
-
-
-def pytest_sessionfinish(session, exitstatus):
-    """After than all tests are finished we drop tables and DB."""
-
-    message = f' Tests are finished at: {test_settings.get_datetime_now()} '
-    print('\n\n\n{:*^79}\n\n'.format(message))
-
-    with session_obj() as connection:
-        # Drop all tables.
-        drop_tables(engine, connection)
-
-    # Drop db.
-    drop_db(engine)
 
 
 def create_db(engine: Engine) -> None:
