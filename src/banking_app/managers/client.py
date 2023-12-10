@@ -36,7 +36,7 @@ class ClientManager(BaseManager):
     def _enrich_statement(self, statement: AllStatements) -> AllStatements:
         """Enrich passed statement and return enriched statement."""
 
-        if isinstance(statement, Delete, Insert):
+        if isinstance(statement, (Delete, Insert)):
             statement = (
                 statement.
                 options(selectinload(self.model.client_status))

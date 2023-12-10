@@ -8,9 +8,8 @@ from src.banking_app.conf import NotSpecifiedParam
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.client import ClientManager
 from src.banking_app.models.client import Client
-from src.banking_app.schemas.client import ClientGetDTO
-from src.banking_app.schemas.client import ClientPostDTO
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas.client import ClientRetrieve
+from src.banking_app.schemas.client import ClientCreate
 from src.banking_app.types.client import Sex
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import NotFoundMessage
@@ -23,16 +22,10 @@ router = APIRouter(
 )
 
 
-def get_client_with_full_status(instance: Client):
-    model = instance.to_dto_model(ClientGetDTO)
-    model.status = instance.client_status.to_dto_model(StatusRetrieve)
-    return model
-
-
 @router.get(
     path='/list-filtered',
     status_code=status.HTTP_200_OK,
-    response_model=list[ClientGetDTO],
+    response_model=list[ClientRetrieve],
 )
 def get_clients_filtered_by(
         status_code: int = NotSpecifiedParam,
@@ -47,56 +40,56 @@ def get_clients_filtered_by(
         VIP_flag=has_vip_status,
         sex=sex,
     )
-    instances = session.scalars(statement).unique().all()
-    return [get_client_with_full_status(instance) for instance in instances]
+    instances: list[Client] = session.scalars(statement).unique().all()
+    return [instance.to_dto_model(ClientRetrieve) for instance in instances]
 
 
 @router.get(
     path='/list',
     status_code=status.HTTP_200_OK,
-    response_model=list[ClientGetDTO],
+    response_model=list[ClientRetrieve],
 )
 def get_all_clients(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances = session.scalars(statement).unique().all()
-    return [get_client_with_full_status(instance) for instance in instances]
+    instances: list[Client] = session.scalars(statement).unique().all()
+    return [instance.to_dto_model(ClientRetrieve) for instance in instances]
 
 
 @router.post(
     path='/list',
     status_code=status.HTTP_201_CREATED,
-    response_model=list[ClientGetDTO],
+    response_model=list[ClientRetrieve],
 )
 def add_list_of_clients(
-        clients_list: list[ClientPostDTO],
+        clients_list: list[ClientCreate],
         session: Session = Depends(activate_session),
 ):
     list_kwargs = [data.model_dump() for data in clients_list]
     statement = manager.bulk_create(list_kwargs)
-    instances = session.scalars(statement).unique().all()
+    instances: list[Client] = session.scalars(statement).unique().all()
     session.commit()
-    return [get_client_with_full_status(instance) for instance in instances]
+    return [instance.to_dto_model(ClientRetrieve) for instance in instances]
 
 
 @router.post(
     path='/',
     status_code=status.HTTP_201_CREATED,
-    response_model=ClientGetDTO,
+    response_model=ClientRetrieve,
 )
 def add_client(
-        client_data: ClientPostDTO,
+        client_data: ClientCreate,
         session: Session = Depends(activate_session),
 ):
     statement = manager.create(**client_data.model_dump())
     instance: Client = session.scalar(statement)
     session.commit()
-    return get_client_with_full_status(instance)
+    return instance.to_dto_model(ClientRetrieve)
 
 
 @router.get(
     path='/{client_id}',
     status_code=status.HTTP_200_OK,
-    response_model=ClientGetDTO,
+    response_model=ClientRetrieve,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -106,9 +99,9 @@ def get_client_by_id(
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(client_id=client_id)
-    instance = session.scalars(statement).unique().all()
-    if len(instance) == 1:
-        return get_client_with_full_status(instance[0])
+    instance: Client = session.scalar(statement)
+    if instance is not None:
+        return instance.to_dto_model(ClientRetrieve)
     BaseExceptionRaiser(
         model=Client,
         status=status.HTTP_404_NOT_FOUND,
@@ -119,7 +112,7 @@ def get_client_by_id(
 @router.delete(
     path='/{client_id}',
     status_code=status.HTTP_200_OK,
-    response_model=ClientGetDTO,
+    response_model=ClientRetrieve,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -129,11 +122,11 @@ def delete_client_with_id(
         session: Session = Depends(activate_session),
 ):
     statement = manager.delete(client_id=client_id)
-    instance = session.scalar(statement)
+    instance: Client = session.scalar(statement)
     session.commit()
 
     if instance is not None:
-        return get_client_with_full_status(instance)
+        return instance.to_dto_model(ClientRetrieve)
     BaseExceptionRaiser(
         model=Client,
         status=status.HTTP_404_NOT_FOUND,
