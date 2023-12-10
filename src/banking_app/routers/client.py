@@ -10,7 +10,7 @@ from src.banking_app.managers.client import ClientManager
 from src.banking_app.models.client import Client
 from src.banking_app.schemas.client import ClientGetDTO
 from src.banking_app.schemas.client import ClientPostDTO
-from src.banking_app.schemas.status import StatusDescDTO
+from src.banking_app.schemas.status import StatusRetrieve
 from src.banking_app.types.client import Sex
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import NotFoundMessage
@@ -25,7 +25,7 @@ router = APIRouter(
 
 def get_client_with_full_status(instance: Client):
     model = instance.to_dto_model(ClientGetDTO)
-    model.status = instance.client_status.to_dto_model(StatusDescDTO)
+    model.status = instance.client_status.to_dto_model(StatusRetrieve)
     return model
 
 

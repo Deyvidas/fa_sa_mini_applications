@@ -4,10 +4,21 @@
 - [x] Test endpoint GET /status/{status_num} (get_status_with_status_number).
 - [x] Test endpoint POST /status (add_status).
 - [x] Test endpoint DELETE /status/{status_num} (delete_status_with_status_number).
+- [x] Test method update of StatusManager.
+- [ ] Test endpoint PATCH /status/{status_num} (update_status_with_status_number).
 
 ---
 
 ### Endpoints:
 
 - [ ] Add endpoint for update existent status ONLY status description.
+    - because if assign one status number to more than one status,
+      IntegrityError exception will happen (status is unique field).
 - [ ] Add endpoint for create more than one status in one request.
+
+---
+
+### Manager:
+
+- [x] Declare update method in StatusManager. (don't need, I inherit this method
+      from UpdateManager).

@@ -7,7 +7,7 @@ from typing import Union
 
 from src.banking_app.conf import settings
 from src.banking_app.schemas.base import Base
-from src.banking_app.schemas.status import StatusDescDTO
+from src.banking_app.schemas.status import StatusRetrieve
 from src.banking_app.types.client import Sex
 
 
@@ -61,7 +61,7 @@ class ClientGetDTO(ClientPostDTO):
     VIP_flag: bool = Field(
         examples=[False],
     )
-    status: Union[StatusDescDTO, int]
+    status: Union[StatusRetrieve, int]
 
     @field_validator('reg_date', mode='after')
     @classmethod

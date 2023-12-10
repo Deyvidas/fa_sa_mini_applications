@@ -16,7 +16,7 @@ from src.banking_app.models.client import Client
 from src.banking_app.schemas.balance import BalanceGetDTO
 from src.banking_app.schemas.balance import BalancePostDTO
 from src.banking_app.schemas.client import ClientGetDTO
-from src.banking_app.schemas.status import StatusDescDTO
+from src.banking_app.schemas.status import StatusRetrieve
 from src.banking_app.types.general import MoneyAmount
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import NotFoundMessage
@@ -48,7 +48,7 @@ def raise_client_not_found(error: IntegrityError) -> NoReturn:
 def get_balance_dto_model(instance: Balance) -> BalanceGetDTO:
     balance_model = instance.to_dto_model(BalanceGetDTO)
     client_model = balance_model.client.to_dto_model(ClientGetDTO)
-    status_model = balance_model.client.client_status.to_dto_model(StatusDescDTO)  # noqa: E501
+    status_model = balance_model.client.client_status.to_dto_model(StatusRetrieve)  # noqa: E501
 
     balance_model.client = client_model
     balance_model.client.status = status_model

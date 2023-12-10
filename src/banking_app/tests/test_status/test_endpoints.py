@@ -14,22 +14,23 @@ from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import StatusDesc
 
 
-client = TestClient(banking_app)
-manager = StatusManager()
-
-
 LS = NewType('LS', list[StatusDesc])
 S = NewType('S', StatusDesc)
 
 
-@pytest.mark.run(order=2.001)
 @pytest.mark.usefixtures('create_and_drop_tables')
-class TestGET:
-    not_unique_msg = '{} with field value status={} already exists.'
+class BaseTest:
+    client = TestClient(banking_app)
+    manager = StatusManager()
     not_found_msg = '{} with status={} not found.'
+    not_unique_msg = '{} with field value status={} already exists.'
+
+
+@pytest.mark.run(order=2.001)
+class TestRetrieve(BaseTest):
 
     def test_get_all_statuses(self, create_statuses: LS):
-        response = client.get('/status/list')
+        response = self.client.get('/status/list')
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
@@ -58,7 +59,7 @@ class TestGET:
                     continue
                 unexist_num = num
 
-            response = client.get(f'/status/{unexist_num}')
+            response = self.client.get(f'/status/{unexist_num}')
             assert response.status_code == status_code
 
             msg = self.not_found_msg.format(StatusDesc.__name__, unexist_num)
@@ -66,7 +67,7 @@ class TestGET:
             return
 
         for status_db in create_statuses:
-            response = client.get(f'/status/{status_db.status}')
+            response = self.client.get(f'/status/{status_db.status}')
             assert response.status_code == status_code
 
             body = response.json()
@@ -74,14 +75,18 @@ class TestGET:
             assert body['status'] == status_db.status
             assert body['description'] == status_db.description
 
+
+@pytest.mark.run(order=2.002)
+class TestPost(BaseTest):
+
     def test_add_status(self, session: Session):
         # Check if table of statuses is empty.
-        statement = manager.filter()
+        statement = self.manager.filter()
         instances = session.scalars(statement).unique().all()
         assert len(instances) == 0
 
         new_status = dict(status=1000, description='Test status number 1000.')
-        response = client.post('/status', json=new_status)
+        response = self.client.post('/status', json=new_status)
         assert response.status_code == status.HTTP_201_CREATED
 
         # Expect than posted status was returned.
@@ -101,10 +106,19 @@ class TestGET:
             status=new_status['status'],
             description='New status description.',
         )
-        response = client.post('/status', json=invalid_status)
+        response = self.client.post('/status', json=invalid_status)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         msg = self.not_unique_msg.format(StatusDesc.__name__, invalid_status['status'])  # noqa: E501
         assert response.json() == {'detail': msg}
+
+
+@pytest.mark.run(order=2.003)
+class TestUpdate(BaseTest):
+    ...
+
+
+@pytest.mark.run(order=2.004)
+class TestDelete(BaseTest):
 
     def test_delete_status_with_status_number(
             self,
@@ -116,7 +130,7 @@ class TestGET:
         status_to_delete = create_statuses[-1]
         url = f'/status/{status_to_delete.status}'
 
-        response = client.delete(url)
+        response = self.client.delete(url)
         assert response.status_code == status.HTTP_200_OK
 
         # Expect than deleted status was returned.
@@ -126,18 +140,18 @@ class TestGET:
         assert body['description'] == status_to_delete.description
 
         # Check than status isn't in the DB.
-        instances: LS = session.scalars(manager.filter()).unique().all()
+        instances: LS = session.scalars(self.manager.filter()).unique().all()
         assert len(instances) == (count - 1)
         assert status_to_delete not in instances
 
         # Then try DELETE not existent status.
-        response = client.delete(url)
+        response = self.client.delete(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
         msg = self.not_found_msg.format(StatusDesc.__name__, status_to_delete.status)  # noqa: E501
         assert response.json() == {'detail': msg}
 
         # Check than unsuccess deleting does't change len&attributes in DB.
-        instances_after: LS = session.scalars(manager.filter()).unique().all()
+        instances_after: LS = session.scalars(self.manager.filter()).unique().all()  # noqa: E501
         assert len(instances) == len(instances_after)
         for before, after in zip(instances, instances_after):
             assert before.status == after.status

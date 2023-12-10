@@ -7,7 +7,9 @@ from sqlalchemy.orm.session import Session
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import StatusDesc
-from src.banking_app.schemas.status import StatusDescDTO
+from src.banking_app.schemas.status import StatusCreate
+from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas.status import StatusUpdate
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import NotFoundMessage
 from src.banking_app.utils.exceptions import UniquesViolationMessage
@@ -23,31 +25,31 @@ router = APIRouter(
 @router.get(
     path='/list',
     status_code=status.HTTP_200_OK,
-    response_model=list[StatusDescDTO],
+    response_model=list[StatusRetrieve],
 )
 def get_all_statuses(session: Session = Depends(activate_session)):
     statement = manager.filter()
     instances: list[StatusDesc] = session.scalars(statement).unique().all()
-    return [instance.to_dto_model(StatusDescDTO) for instance in instances]
+    return [instance.to_dto_model(StatusRetrieve) for instance in instances]
 
 
 @router.post(
     path='/',
     status_code=status.HTTP_201_CREATED,
-    response_model=StatusDescDTO,
+    response_model=StatusRetrieve,
     responses={
         status.HTTP_400_BAD_REQUEST: {'model': UniquesViolationMessage},
     }
 )
 def add_status(
-        status_data: StatusDescDTO,
+        status_data: StatusCreate,
         session: Session = Depends(activate_session),
 ):
     statement = manager.create(**status_data.model_dump())
     try:
-        instance = session.scalar(statement)
+        instance: StatusDesc = session.scalar(statement)
         session.commit()
-        return instance.to_dto_model(StatusDescDTO)
+        return instance.to_dto_model(StatusRetrieve)
     except IntegrityError:
         BaseExceptionRaiser(
             model=StatusDesc,
@@ -59,7 +61,7 @@ def add_status(
 @router.get(
     path='/{status_num}',
     status_code=status.HTTP_200_OK,
-    response_model=StatusDescDTO,
+    response_model=StatusRetrieve,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -69,10 +71,10 @@ def get_status_with_status_number(
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(status=status_num)
-    instance = session.scalars(statement).unique().all()
+    instance: list[StatusDesc] = session.scalars(statement).unique().all()
 
     if len(instance) == 1:
-        return instance[0].to_dto_model(StatusDescDTO)
+        return instance[0].to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
         model=StatusDesc,
         status=status.HTTP_404_NOT_FOUND,
@@ -80,10 +82,23 @@ def get_status_with_status_number(
     ).raise_exception()
 
 
+@router.patch(
+    path='/{status_num}',
+    status_code=status.HTTP_200_OK,
+    response_model=StatusRetrieve,
+)
+def update_status_with_status_number(
+        status_num: int,
+        new_data: StatusUpdate,
+        session: Session = Depends(activate_session),
+):
+    ...
+
+
 @router.delete(
     path='/{status_num}',
     status_code=status.HTTP_200_OK,
-    response_model=StatusDescDTO,
+    response_model=StatusRetrieve,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -97,7 +112,7 @@ def delete_status_with_status_number(
     session.commit()
 
     if instance is not None:
-        return instance.to_dto_model(StatusDescDTO)
+        return instance.to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
         model=StatusDesc,
         status=status.HTTP_404_NOT_FOUND,
