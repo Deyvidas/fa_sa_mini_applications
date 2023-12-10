@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 
 from pydantic import BaseModel
@@ -17,9 +18,10 @@ class StatusDTO(BaseModel):
 def statuses() -> list[StatusDTO]:
     statuses = list()
     for i in range(1, 10):
+        num = i * 100
         status = StatusDTO(
-            status=i*100,
-            description=f'Test description {i}',
+            status=num,
+            description=f'Test description {num}',
         )
         statuses.append(status)
     return statuses
@@ -74,11 +76,64 @@ class TestManager:
             assert instance.status == status.status
             assert instance.description == status.description
 
-    def test_filter_without_params(
+    @pytest.mark.parametrize(
+        argnames='filter_kwargs,filter_expr',
+        argvalues=(
+            pytest.param(
+                dict(),
+                'lambda s: True',
+                id='filter()'
+            ),
+            pytest.param(
+                dict(status=300),
+                'lambda s: s.status == 300',
+                id='filter(status=<int>)'
+            ),
+            pytest.param(
+                dict(status__in=(100, 400, 900)),
+                'lambda s: s.status in (100, 400, 900)',
+                id='filter(status__in=(<int>, ...))'
+            ),
+            pytest.param(
+                dict(
+                    status=300,
+                    description='Test description 300',
+                ),
+                (
+                    'lambda s: s.status == 300 and '
+                    's.description == "Test description 300"'
+                ),
+                id='filter(status=<int>, description=<str>)'
+            ),
+            pytest.param(
+                dict(
+                    status__in=(100, 400, 900),
+                    description__in=('Test description 400', 'Test description 900'),  # noqa: E501
+                ),
+                (
+                    'lambda s: s.status in (100, 400, 900) and '
+                    's.description in ("Test description 400","Test description 900")'  # noqa: E501
+                ),
+                id='filter(status__in=(<int>, ...), description__in=(<str>, ...))'  # noqa: E501
+            ),
+        ),
+    )
+    def test_filter(
             self,
             session: Session,
             create_statuses: list[StatusDesc],
+            filter_kwargs: dict[str, Any],
+            filter_expr: str,
     ):
-        statement = self.manager.filter()
-        instances = session.scalars(statement).unique().all()
-        assert len(instances) == len(create_statuses)
+        statement = self.manager.filter(**filter_kwargs)
+        instances: list[StatusDesc] = session.scalars(statement).unique().all()
+        estimated_list = list(filter(eval(filter_expr), create_statuses))
+
+        assert len(instances) == len(estimated_list)
+
+        instances = sorted(instances, key=lambda s: s.status)
+        estimated_list = sorted(estimated_list, key=lambda s: s.status)
+
+        for instance, estimated in zip(instances, estimated_list):
+            assert instance.status == estimated.status
+            assert instance.description == estimated.description
