@@ -1,15 +1,19 @@
 import pytest
 
-from random import random
-
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from random import random
+
+from sqlalchemy.orm.session import Session
+
 from src.banking_app.main import banking_app
+from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import StatusDesc
 
 
 client = TestClient(banking_app)
+manager = StatusManager()
 
 
 @pytest.mark.run(order=2.001)
@@ -19,7 +23,10 @@ class TestGET:
     def test_get_all_statuses(self, create_statuses):
         response = client.get('/status/list')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.json()) == len(create_statuses)
+
+        body = response.json()
+        assert body is not None and isinstance(body, list)
+        assert len(body) == len(create_statuses)
 
     @pytest.mark.parametrize(
         argnames='status_code',
@@ -54,6 +61,39 @@ class TestGET:
             response = client.get(f'/status/{status_db.status}')
             assert response.status_code == status_code
 
-            status_resp = response.json()
-            assert status_resp['status'] == status_db.status
-            assert status_resp['description'] == status_db.description
+            body = response.json()
+            assert body is not None and isinstance(body, dict)
+            assert body['status'] == status_db.status
+            assert body['description'] == status_db.description
+
+    def test_add_status(self, session: Session):
+        # Check if table of statuses is empty.
+        statement = manager.filter()
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) == 0
+
+        new_status = dict(status=1000, description='Test status number 1000.')
+        response = client.post('/status', json=new_status)
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # Expect than posted status was returned.
+        body = response.json()
+        assert body is not None and isinstance(body, dict)
+        assert body['status'] == new_status['status']
+        assert body['description'] == new_status['description']
+
+        # Check if posted status is saved into DB.
+        instances: list[StatusDesc] = session.scalars(statement).unique().all()
+        assert len(instances) == 1
+        assert instances[0].status == new_status['status']
+        assert instances[0].description == new_status['description']
+
+        # Then try POST status with not unique status (status is unique field).
+        invalid_status = dict(
+            status=new_status['status'],
+            description='New status description.',
+        )
+        response = client.post('/status', json=invalid_status)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        msg = f'{StatusDesc.__name__} with field value status={invalid_status['status']} already exists.'  # noqa: E501
+        assert response.json() == {'detail': msg}
