@@ -8,15 +8,19 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-pydantic-settings = "^2.1.0"
-sqlalchemy = "^2.0.23"
-psycopg = {extras = ["binary"], version = "^3.1.13"}
-fastapi = {extras = ["all"], version = "^0.104.1"}
-alembic = "^1.13.0"
 
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.3"
+pytest-ordering = "^0.6"
+
+
+[tool.poetry.group.prod.dependencies]
+pydantic-settings = "^2.1.0"
+sqlalchemy = "^2.0.23"
+psycopg = {extras = ["binary"], version = "^3.1.14"}
+fastapi = {extras = ["all"], version = "^0.104.1"}
+alembic = "^1.13.0"
 
 [build-system]
 requires = ["poetry-core"]
