@@ -40,6 +40,7 @@ def create_statuses(
     return instances
 
 
+@pytest.mark.usefixtures('create_and_drop_tables')
 class TestManager:
     manager = StatusManager()
     model = StatusDesc

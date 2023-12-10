@@ -31,17 +31,11 @@ session_obj = sessionmaker(
 
 
 def pytest_sessionstart(session):
-    """Before than tests session is started create DB and tables."""
+    """Before than tests session is started create DB."""
 
-    # Drop db if exist and then create db.
+    # Drop DB if exist and then create DB.
     drop_db(engine)
     create_db(engine)
-
-    with session_obj() as connection:
-        # Drop all tables if exists and then create tables.
-        drop_tables(engine, connection)
-        create_tables(engine, connection)
-
     message = f' Tests are started at: {test_settings.get_datetime_now()} '
     print('\n\n{:*^79}\n\n'.format(message))
 
@@ -66,7 +60,7 @@ def switch_db_for_fastapi_testing() -> None:
     banking_app.dependency_overrides[activate_session] = get_session_for_tests
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def create_and_drop_tables(session: Session) -> None:
     engine.echo = False  # OFF echo between test because is cumbersome.
 
@@ -86,12 +80,6 @@ def pytest_sessionfinish(session, exitstatus):
 
     message = f' Tests are finished at: {test_settings.get_datetime_now()} '
     print('\n\n\n{:*^79}\n\n'.format(message))
-
-    with session_obj() as connection:
-        # Drop all tables.
-        drop_tables(engine, connection)
-
-    # Drop db.
     drop_db(engine)
 
 
@@ -137,18 +125,18 @@ def execute_shell_command(command: str, engine: Engine) -> None:
 
     if result.returncode == 0:
         message = (
-            f'\nSUCCESS:\n\tCommand was successfully executed!'
+            f'\n\nSUCCESS:\n\tCommand was successfully executed!'
             f'\nCOMMAND:\n\t{command}'
-            f'\n OUTPUT:\n\t{stdout}'
+            f'\n OUTPUT:\n\t{stdout}\n'
         )
         if stderr != '':
-            message += f'\n   INFO:\n\t{stderr}'
+            message = message.rstrip() + f'\n   INFO:\n\t{stderr}\n'
         engine.logger.info(message)
     else:
         message = (
-            f'\n  ERROR:\n\tIn time execution of command an error occurred.'
+            f'\n\n  ERROR:\n\tIn time execution of command an error occurred.'
             f'\nCOMMAND:\n\t{command}'
-            f'\n OUTPUT:\n\t{stderr}'
+            f'\n OUTPUT:\n\t{stderr}\n'
         )
         engine.logger.error(message)
         raise ProcessLookupError(message)
@@ -178,7 +166,8 @@ def create_tables(engine: Engine, session: Session) -> None:
     session.commit()
     Base.metadata.create_all(engine)
     session.commit()
-    engine.logger.info('Base.metadata.create_all() OK!')
+    message = '\n{:*^79}'.format(' Base.metadata.create_all() OK! ')
+    engine.logger.info(message)
 
 
 def drop_tables(engine: Engine, session: Session) -> None:
@@ -187,4 +176,5 @@ def drop_tables(engine: Engine, session: Session) -> None:
     session.commit()
     Base.metadata.drop_all(engine)
     session.commit()
-    engine.logger.info('Base.metadata.drop_all() OK!')
+    message = '\n{:*^79}'.format(' Base.metadata.drop_all() OK! ')
+    engine.logger.info(message)
