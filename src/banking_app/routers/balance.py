@@ -17,6 +17,7 @@ from src.banking_app.schemas.balance import BalanceCreate
 from src.banking_app.schemas.balance import BalanceRetrieve
 from src.banking_app.types.general import MoneyAmount
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
+from src.banking_app.utils.exceptions import ErrorType
 from src.banking_app.utils.exceptions import NotFoundMessage
 
 
@@ -38,7 +39,7 @@ def raise_client_not_found(error: IntegrityError) -> NoReturn:
 
     BaseExceptionRaiser(
         model=Client,
-        status=status.HTTP_404_NOT_FOUND,
+        error_type=ErrorType.NOT_FOUND_404,
         kwargs=eval(f'dict({key_value})')
     ).raise_exception()
 

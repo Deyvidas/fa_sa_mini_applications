@@ -12,6 +12,7 @@ from src.banking_app.schemas.client import ClientRetrieve
 from src.banking_app.schemas.client import ClientCreate
 from src.banking_app.types.client import Sex
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
+from src.banking_app.utils.exceptions import ErrorType
 from src.banking_app.utils.exceptions import NotFoundMessage
 
 
@@ -104,7 +105,7 @@ def get_client_by_id(
         return instance.to_dto_model(ClientRetrieve)
     BaseExceptionRaiser(
         model=Client,
-        status=status.HTTP_404_NOT_FOUND,
+        error_type=ErrorType.NOT_FOUND_404,
         kwargs=dict(client_id=client_id),
     ).raise_exception()
 
@@ -129,6 +130,6 @@ def delete_client_with_id(
         return instance.to_dto_model(ClientRetrieve)
     BaseExceptionRaiser(
         model=Client,
-        status=status.HTTP_404_NOT_FOUND,
+        error_type=ErrorType.NOT_FOUND_404,
         kwargs=dict(client_id=client_id),
     ).raise_exception()
