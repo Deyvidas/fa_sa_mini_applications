@@ -2,8 +2,8 @@ import pytest
 
 from pydantic import ValidationError
 
-from src.banking_app.schemas.status import DescriptionField
-from src.banking_app.schemas.status import StatusField
+from src.banking_app.schemas.status import DescriptionRequired
+from src.banking_app.schemas.status import StatusRequired
 
 
 @pytest.mark.run(order=0.001)
@@ -19,7 +19,7 @@ class TestStatusField:
     )
     def test_valid_values(self, raw_status, clean_status):
         try:
-            obj = StatusField(status=raw_status)
+            obj = StatusRequired(status=raw_status)
             assert obj.status == clean_status
         except Exception:
             assert False
@@ -37,7 +37,7 @@ class TestStatusField:
     )
     def test_must_be_positive(self, status):
         with pytest.raises(ValidationError) as error:
-            StatusField(status=status)
+            StatusRequired(status=status)
 
         msg = 'Input should be greater than 0'
         if status in (float('inf'), float('-inf')):
@@ -58,7 +58,7 @@ class TestStatusField:
     )
     def test_can_be_only_digit(self, status):
         with pytest.raises(ValidationError) as error:
-            StatusField(status=status)
+            StatusRequired(status=status)
         msg = 'Input should be a valid integer'
         error = list(filter(
             lambda e: e.get('msg', '').startswith(msg), error.value.errors()
@@ -78,7 +78,7 @@ class TestDescriptionField:
     )
     def test_valid_values(self, raw_description, clean_description):
         try:
-            obj = DescriptionField(description=raw_description)
+            obj = DescriptionRequired(description=raw_description)
             assert obj.description == clean_description
         except Exception:
             assert False
@@ -100,7 +100,7 @@ class TestDescriptionField:
     )
     def test_length_must_be_between_1_and_100(self, description, message):
         with pytest.raises(ValidationError) as error:
-            DescriptionField(description=description)
+            DescriptionRequired(description=description)
         error = list(filter(
             lambda e: e.get('msg') == message, error.value.errors()
         ))
@@ -116,7 +116,7 @@ class TestDescriptionField:
     )
     def test_can_be_only_string(self, description):
         with pytest.raises(ValidationError) as error:
-            DescriptionField(description=description)
+            DescriptionRequired(description=description)
         error = list(filter(
             lambda e: e.get('msg') == 'Input should be a valid string',
             error.value.errors()
