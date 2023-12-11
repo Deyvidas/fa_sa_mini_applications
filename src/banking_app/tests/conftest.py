@@ -1,12 +1,15 @@
 import pytest
-import subprocess
 
-from typing import NamedTuple
+from time import sleep
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.session import sessionmaker
+
+from sqlalchemy_utils import create_database  # type: ignore
+from sqlalchemy_utils import database_exists
+from sqlalchemy_utils import drop_database
 
 from src.banking_app.conf import test_settings
 from src.banking_app.connection import activate_session
@@ -31,13 +34,17 @@ session_obj = sessionmaker(
 
 
 def pytest_sessionstart(session):
-    """Before than tests session is started create DB."""
-
-    # Drop DB if exist and then create DB.
-    drop_db(engine)
-    create_db(engine)
+    """Before than test session is started create DB."""
+    create_db(engine)  # Drop DB if exist and then create DB.
     message = f' Tests are started at: {test_settings.get_datetime_now()} '
-    print('\n\n{:*^79}\n\n'.format(message))
+    print('\n{:*^79}\n'.format(message))
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Drop database when test session is ended."""
+    message = f' Tests are finished at: {test_settings.get_datetime_now()} '
+    print('\n\n{:*^79}\n'.format(message))
+    drop_db(engine)
 
 
 @pytest.fixture(scope='session')
@@ -47,17 +54,14 @@ def session() -> Session:
 
 
 @pytest.fixture(scope='session', autouse=True)
-def switch_db_for_fastapi_testing() -> None:
-    """
-    Switch used database into endpoints of application to test_db.
-
-    Change all args of dependencies in endpoints from Depends(activate_session)
-    to Depends(get_session_for_tests).
-
-    Is required for example for tests where make changes of DB state, and we
-    don't wont than main DB was changed.
-    """
+def switch_used_session_in_dependencies() -> None:
+    """Switch used session into endpoints depends."""
     banking_app.dependency_overrides[activate_session] = get_session_for_tests
+
+
+def get_session_for_tests():
+    with session_obj() as session:
+        yield session
 
 
 @pytest.fixture
@@ -75,89 +79,21 @@ def create_and_drop_tables(session: Session) -> None:
         engine.echo = test_settings.ENGINE_ECHO  # After reset value.
 
 
-def pytest_sessionfinish(session, exitstatus):
-    """After than all tests are finished we drop tables and DB."""
-
-    message = f' Tests are finished at: {test_settings.get_datetime_now()} '
-    print('\n\n\n{:*^79}\n\n'.format(message))
-    drop_db(engine)
-
-
-def get_session_for_tests():
-    with session_obj() as session:
-        yield session
-
-
-class UrlDbname(NamedTuple):
-    url: str
-    db_name: str
-
-
-def get_url_db_name(engine: Engine) -> UrlDbname:
-    """
-    Return from passed engine valid to use into CMD url, without database name
-    and without +<driver>.
-
-    ```python
-    # noqa: E501
-    # Must be passed object of sqlalchemy.engine.base.Engine;
-
-    print(engine.url)
-    >>> postgresql+psycopg://username:***@localhost:5432/banking_test
-
-    data = get_url_db_name(engine)
-    str(data)
-    >>> "UrlDbname(url='postgresql://postgres:postgres@localhost:5432', db_name='banking_test')"
-    ```
-    """
-    url = engine.url
-    url = url._replace(database=None, drivername=url.drivername.split('+')[0])
-    url = url.render_as_string(hide_password=False)
-
-    db_name = engine.url.database
-    return UrlDbname(url=url, db_name=db_name)
-
-
-def execute_shell_command(command: str, engine: Engine) -> None:
-    result = subprocess.run(command, shell=True, capture_output=True)
-    stdout = result.stdout.decode('utf8').strip().replace('\n', '\n\t')
-    stderr = result.stderr.decode('utf8').strip().replace('\n', '\n\t')
-
-    if result.returncode == 0:
-        message = (
-            f'\n\nSUCCESS:\n\tCommand was successfully executed!'
-            f'\nCOMMAND:\n\t{command}'
-            f'\n OUTPUT:\n\t{stdout}\n'
-        )
-        if stderr != '':
-            message = message.rstrip() + f'\n   INFO:\n\t{stderr}\n'
-        engine.logger.info(message)
-    else:
-        message = (
-            f'\n\n  ERROR:\n\tIn time execution of command an error occurred.'
-            f'\nCOMMAND:\n\t{command}'
-            f'\n OUTPUT:\n\t{stderr}\n'
-        )
-        engine.logger.error(message)
-        raise ProcessLookupError(message)
-
-
 def create_db(engine: Engine) -> None:
     """Execute command in command line which create DB."""
 
-    data = get_url_db_name(engine)
-
-    create_db = f'psql {data.url} -c "CREATE DATABASE {data.db_name}"'
-    execute_shell_command(command=create_db, engine=engine)
+    drop_db(engine)
+    sleep(1)  # Sleep is required!
+    create_database(engine.url)
+    engine.logger.info(f'|| DB CREATED SUCCESSFULLY (url={engine.url}) ||')
 
 
 def drop_db(engine: Engine) -> None:
     """Execute command in command line which drop DB."""
 
-    data = get_url_db_name(engine)
-
-    drop_db = f'psql {data.url} -c "DROP DATABASE IF EXISTS {data.db_name} WITH (FORCE)"'  # noqa: E501
-    execute_shell_command(command=drop_db, engine=engine)
+    if database_exists(engine.url):
+        drop_database(engine.url)
+        engine.logger.info(f'|| DB DROPPED SUCCESSFULLY (url={engine.url}) ||')
 
 
 def create_tables(engine: Engine, session: Session) -> None:
