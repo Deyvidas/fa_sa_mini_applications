@@ -1,5 +1,7 @@
 import pytest
 
+from copy import deepcopy
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -19,6 +21,15 @@ class BaseTest:
     manager = StatusManager()
     not_found_msg = '{} with status={} not found.'
     not_unique_msg = '{} with field value status={} already exists.'
+
+    def get_unexistent_status_num(self, statuses: list[Status]) -> int:
+        """Return status number which not exist."""
+        existent_statuses = [s.status for s in statuses]
+
+        while True:
+            num = int(random() * 100_000)
+            if num not in existent_statuses:
+                return num
 
 
 @pytest.mark.run(order=2.001)
@@ -46,18 +57,11 @@ class TestRetrieve(BaseTest):
     ):
         # Test case when user try to get status with unexistent status number.
         if status_code == status.HTTP_404_NOT_FOUND:
-            existent_statuses = [s.status for s in created_statuses]
-            unexistent_status = None
-            while unexistent_status is None:
-                num = int(random() * 100_000)
-                if num in existent_statuses:
-                    continue
-                unexistent_status = num
-
-            response = self.client.get(f'/status/{unexistent_status}')
+            unexist_status = self.get_unexistent_status_num(created_statuses)
+            response = self.client.get(f'/status/{unexist_status}')
             assert response.status_code == status_code
 
-            msg = self.not_found_msg.format(Status.__name__, unexistent_status)
+            msg = self.not_found_msg.format(Status.__name__, unexist_status)
             assert response.json() == {'detail': msg}
             return
 
@@ -112,7 +116,60 @@ class TestPost(BaseTest):
 
 @pytest.mark.run(order=2.003)
 class TestUpdate(BaseTest):
-    ...
+
+    def test_full_update_status_with_status_number(
+            self,
+            session: Session,
+            created_statuses: list[Status],
+    ):
+        to_update = created_statuses[-1]
+        upd_status_num = to_update.status
+        url = f'/status/{upd_status_num}'
+        new_field_values = dict(description='New description')
+
+        # Make PUT query.
+        response = self.client.put(url, json=new_field_values)
+        assert response.status_code == status.HTTP_200_OK
+
+        # Check than updated object is returned.
+        body = response.json()
+        assert body is not None and isinstance(body, dict)
+        assert set(body.keys()) == self.fields_to_retrieve
+        assert body['status'] == upd_status_num
+        assert body['description'] == new_field_values['description']
+
+        # Check than object is changed in DB.
+        statement = self.manager.filter(status=upd_status_num)
+        instance: list[Status] = session.scalars(statement).unique().all()
+        assert len(instance) == 1
+        assert instance[0].status == upd_status_num
+        assert instance[0].description == new_field_values['description']
+
+        # Make copy of objects to compare than after.
+        statuses_before = deepcopy(created_statuses)  # deepcopy to prevent changing in list. # noqa: E501
+
+        # Then I try to update unexistent status.
+        unexist_status = self.get_unexistent_status_num(created_statuses)
+        url = f'/status/{unexist_status}'
+        response = self.client.put(url, json=new_field_values)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        # Check than not found message is returned.
+        body = response.json()
+        assert body is not None and isinstance(body, dict)
+        msg = self.not_found_msg.format(Status.__name__, unexist_status)
+        assert body == {'detail': msg}
+
+        # Check than objects in DB not changed.
+        statement = self.manager.filter()
+        statuses_after = session.scalars(statement).unique().all()
+        assert len(statuses_after) == len(statuses_before)
+
+        before_ord: list[Status] = sorted(statuses_before, key=lambda s: s.status)  # noqa: E501
+        after_ord: list[Status] = sorted(statuses_after, key=lambda s: s.status)  # noqa: E501
+        for before, after in zip(before_ord, after_ord):
+            assert after.status == before.status
+            assert after.description == before.description
 
 
 @pytest.mark.run(order=2.004)

@@ -82,12 +82,37 @@ def get_status_with_status_number(
     ).raise_exception()
 
 
+@router.put(
+    path='/{status_num}',
+    status_code=status.HTTP_200_OK,
+    response_model=StatusRetrieve,
+)
+def full_update_status_with_status_number(
+        status_num: int,
+        new_data: StatusUpdate,
+        session: Session = Depends(activate_session),
+):
+    statement = manager.update(
+        where=dict(status=status_num),
+        set_value=new_data.model_dump(),
+    )
+    instance: Status = session.scalar(statement)
+    if instance is not None:
+        session.commit()
+        return instance.to_dto_model(StatusRetrieve)
+    BaseExceptionRaiser(
+        model=Status,
+        status=status.HTTP_404_NOT_FOUND,
+        kwargs=dict(status=status_num),
+    ).raise_exception()
+
+
 @router.patch(
     path='/{status_num}',
     status_code=status.HTTP_200_OK,
     response_model=StatusRetrieve,
 )
-def update_status_with_status_number(
+def partial_update_status_with_status_number(
         status_num: int,
         new_data: StatusUpdate,
         session: Session = Depends(activate_session),

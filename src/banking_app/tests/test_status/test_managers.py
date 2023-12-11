@@ -6,7 +6,7 @@ from sqlalchemy.orm.session import Session
 
 from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
-from src.banking_app.tests.test_status.conftest import StatusDTO
+from src.banking_app.schemas.status import StatusRetrieve
 
 
 @pytest.mark.run(order=1.001)
@@ -18,7 +18,7 @@ class TestManager:
     def test_create(
             self,
             session: Session,
-            statuses: list[StatusDTO],
+            statuses: list[StatusRetrieve],
     ):
         status = statuses[0]
 
@@ -32,7 +32,7 @@ class TestManager:
     def test_bulk_create(
             self,
             session: Session,
-            statuses: list[StatusDTO],
+            statuses: list[StatusRetrieve],
     ):
         list_kwargs = [status.model_dump() for status in statuses]
         bulk_create_stmt = self.manager.bulk_create(list_kwargs)
