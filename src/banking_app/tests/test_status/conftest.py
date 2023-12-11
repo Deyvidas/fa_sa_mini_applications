@@ -1,42 +1,34 @@
 import pytest
-
-from pydantic import BaseModel
-
 from sqlalchemy.orm.session import Session
 
 from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
+from src.banking_app.schemas.status import StatusRetrieve
 
 
 manager = StatusManager()
 
 
-class StatusDTO(BaseModel):
-    status: int
-    description: str
-
-
 @pytest.fixture
-def statuses() -> list[StatusDTO]:
-    first = 1
-    last = 9
-    statuses = list()
-    for i in range(first, last+1):
-        num = i * 100
-        status = StatusDTO(
-            status=num,
-            description=f'Test description {num}',
+def statuses() -> list[StatusRetrieve]:
+    first = 100
+    last = 900
+
+    statuses: list[StatusRetrieve] = list()
+    for i in range(first, last+1, 100):
+        status = StatusRetrieve(
+            status=i,
+            description=f'Test description {i}',
         )
         statuses.append(status)
 
-    assert len(statuses) == last
     return statuses
 
 
 @pytest.fixture
-def create_statuses(
+def created_statuses(
         session: Session,
-        statuses: list[StatusDTO],
+        statuses: list[StatusRetrieve],
 ) -> list[Status]:
     list_kwargs = [status.model_dump() for status in statuses]
     statement = manager.bulk_create(list_kwargs)
