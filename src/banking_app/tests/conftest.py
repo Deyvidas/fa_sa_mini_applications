@@ -48,20 +48,20 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(scope='session')
-def session() -> Session:
-    """Initialize context into sqlalchemy.orm.session_obj."""
-    yield get_session_for_tests().send(None)
+def session():
+    """Initialize context of sqlalchemy.orm.Session."""
+    with session_obj() as session:
+        yield session
 
 
 @pytest.fixture(scope='session', autouse=True)
-def switch_used_session_in_dependencies() -> None:
+def switch_used_session_in_dependencies(session) -> None:
     """Switch used session into endpoints depends."""
-    banking_app.dependency_overrides[activate_session] = get_session_for_tests
 
-
-def get_session_for_tests():
-    with session_obj() as session:
+    def test_session():
         yield session
+
+    banking_app.dependency_overrides[activate_session] = test_session
 
 
 @pytest.fixture
