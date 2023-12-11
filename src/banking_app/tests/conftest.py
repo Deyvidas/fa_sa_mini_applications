@@ -66,17 +66,20 @@ def switch_used_session_in_dependencies(session) -> None:
 
 @pytest.fixture
 def create_and_drop_tables(session: Session) -> None:
-    engine.echo = False  # OFF echo between test because is cumbersome.
 
     try:
+        engine.echo = False
         drop_tables(engine, session)
         create_tables(engine, session)
+        engine.echo = test_settings.ENGINE_ECHO
         yield
+        engine.echo = False
         drop_tables(engine, session)
+        engine.echo = test_settings.ENGINE_ECHO
     except Exception:
         pass
     finally:
-        engine.echo = test_settings.ENGINE_ECHO  # After reset value.
+        engine.echo = test_settings.ENGINE_ECHO
 
 
 def create_db(engine: Engine) -> None:

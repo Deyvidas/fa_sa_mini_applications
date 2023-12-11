@@ -86,6 +86,9 @@ def get_status_with_status_number(
     path='/{status_num}',
     status_code=status.HTTP_200_OK,
     response_model=StatusRetrieve,
+    responses={
+        status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
+    },
 )
 def full_update_status_with_status_number(
         status_num: int,
