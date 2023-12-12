@@ -74,6 +74,11 @@ class UpdateManager(AbstractManager):
             where: dict[str, Any],
             set_value: dict[str, Any],
     ) -> Update:
+        if len(set_value) == 0:
+            raise ValueError(
+                f'Updating is not possible without new values, {set_value=}.'
+            )
+
         conditions = KwargsParser().parse_kwargs(
             module_name=__name__,
             model=self.model,

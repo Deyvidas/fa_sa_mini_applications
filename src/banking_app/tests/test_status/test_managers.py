@@ -1,6 +1,6 @@
-from typing import Any
-
 import pytest
+
+from typing import Any
 
 from sqlalchemy.orm.session import Session
 
@@ -128,6 +128,11 @@ class TestManager:
                 dict(description='New description.'),
                 id='update multiple object'
             ),
+            pytest.param(
+                dict(status__between=(200, 500)),
+                dict(),
+                id='update with empty body'
+            ),
         ),
     )
     def test_update(
@@ -137,11 +142,19 @@ class TestManager:
             condition: dict[str, Any],
             values: dict[str, Any],
     ):
-        # Count amount of statuses which must be updated.
-        statement = self.manager.filter(**condition)
-        count = len(session.scalars(statement).unique().all())
+        # Case when passed empty dict in values.
+        if len(values) == 0:
+            with pytest.raises(ValueError) as error:
+                self.manager.update(where=condition, set_value=values)
+            assert str(error.value) == 'Updating is not possible without new values, set_value={}.'  # noqa: E501
+            return
 
+        # Count amount of statuses which must be updated.
         statement = self.manager.update(where=condition, set_value=values)
+        count_stmt = self.manager.filter(**condition)
+        count = len(session.scalars(count_stmt).unique().all())
+
+        # Updating statuses.
         updated: list[Status] = session.scalars(statement).unique().all()
         session.commit()
         assert len(updated) == count
