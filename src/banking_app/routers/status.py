@@ -9,8 +9,10 @@ from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import StatusCreate
 from src.banking_app.schemas.status import StatusRetrieve
-from src.banking_app.schemas.status import StatusUpdate
+from src.banking_app.schemas.status import StatusFullUpdate
+from src.banking_app.schemas.status import StatusPartialUpdate
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
+from src.banking_app.utils.exceptions import ErrorType
 from src.banking_app.utils.exceptions import NotFoundMessage
 from src.banking_app.utils.exceptions import UniquesViolationMessage
 
@@ -53,7 +55,7 @@ def add_status(
     except IntegrityError:
         BaseExceptionRaiser(
             model=Status,
-            status=status.HTTP_400_BAD_REQUEST,
+            error_type=ErrorType.UNIQUE_VIOLATION_400,
             kwargs=dict(status=status_data.status),
         ).raise_exception()
 
@@ -77,7 +79,7 @@ def get_status_with_status_number(
         return instance[0].to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
         model=Status,
-        status=status.HTTP_404_NOT_FOUND,
+        error_type=ErrorType.NOT_FOUND_404,
         kwargs=dict(status=status_num)
     ).raise_exception()
 
@@ -92,7 +94,7 @@ def get_status_with_status_number(
 )
 def full_update_status_with_status_number(
         status_num: int,
-        new_data: StatusUpdate,
+        new_data: StatusFullUpdate,
         session: Session = Depends(activate_session),
 ):
     statement = manager.update(
@@ -105,7 +107,7 @@ def full_update_status_with_status_number(
         return instance.to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
         model=Status,
-        status=status.HTTP_404_NOT_FOUND,
+        error_type=ErrorType.NOT_FOUND_404,
         kwargs=dict(status=status_num),
     ).raise_exception()
 
@@ -117,10 +119,32 @@ def full_update_status_with_status_number(
 )
 def partial_update_status_with_status_number(
         status_num: int,
-        new_data: StatusUpdate,
+        new_data: StatusPartialUpdate,
         session: Session = Depends(activate_session),
 ):
-    ...
+    data = new_data.model_dump(exclude_unset=True)
+
+    if len(data) == 0:
+        BaseExceptionRaiser(
+            model=Status,
+            error_type=ErrorType.EMPTY_BODY_ON_PATCH_400,
+            kwargs=dict(status=status_num),
+        ).raise_exception()
+
+    statement = manager.update(
+        where=dict(status=status_num),
+        set_value=data,
+    )
+    instance: Status = session.scalar(statement)
+    if instance is not None:
+        session.commit()
+        return instance.to_dto_model(StatusRetrieve)
+
+    BaseExceptionRaiser(
+        model=Status,
+        error_type=ErrorType.NOT_FOUND_404,
+        kwargs=dict(status=status_num),
+    ).raise_exception()
 
 
 @router.delete(
@@ -143,6 +167,6 @@ def delete_status_with_status_number(
         return instance.to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
         model=Status,
-        status=status.HTTP_404_NOT_FOUND,
+        error_type=ErrorType.NOT_FOUND_404,
         kwargs=dict(status=status_num)
     ).raise_exception()

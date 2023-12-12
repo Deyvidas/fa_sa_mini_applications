@@ -20,7 +20,8 @@ class BaseTest:
     fields_to_retrieve = set(('status', 'description'))
     manager = StatusManager()
     not_found_msg = '{} with status={} not found.'
-    not_unique_msg = '{} with field value status={} already exists.'
+    not_unique_msg = '{} with status={} already exists.'
+    empty_patch_body = '{} with status={} can\'t be updated, received empty body, change at least value of one field.'
 
     def get_unexistent_status_num(self, statuses: list[Status]) -> int:
         """Return status number which not exist."""
@@ -117,18 +118,34 @@ class TestPost(BaseTest):
 @pytest.mark.run(order=2.003)
 class TestUpdate(BaseTest):
 
+    @pytest.mark.parametrize(
+        argnames='method',
+        argvalues=(
+            pytest.param('PUT', id='PUT query'),
+            pytest.param('PATCH', id='PATCH query'),
+        ),
+    )
     def test_full_update_status_with_status_number(
             self,
+            method: str,
             session: Session,
             created_statuses: list[Status],
     ):
+        functions = {
+            'PUT': self.client.put,
+            'PATCH': self.client.patch,
+        }
+        query_function = functions.get(method)
+        if query_function is None:
+            assert False, f'Method `{method}` is not provided for this test.'
+
         to_update = created_statuses[-1]
         upd_status_num = to_update.status
         url = f'/status/{upd_status_num}'
-        new_field_values = dict(description='New description')
+        new_field_values = dict(description=f'New description for {method}.')
 
-        # Make PUT query.
-        response = self.client.put(url, json=new_field_values)
+        # Make query.
+        response = query_function(url, json=new_field_values)
         assert response.status_code == status.HTTP_200_OK
 
         # Check than updated object is returned.
@@ -151,7 +168,7 @@ class TestUpdate(BaseTest):
         # Then I try to update unexistent status.
         unexist_status = self.get_unexistent_status_num(created_statuses)
         url = f'/status/{unexist_status}'
-        response = self.client.put(url, json=new_field_values)
+        response = query_function(url, json=new_field_values)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
         # Check than not found message is returned.
@@ -164,9 +181,44 @@ class TestUpdate(BaseTest):
         statement = self.manager.filter()
         statuses_after = session.scalars(statement).unique().all()
         assert len(statuses_after) == len(statuses_before)
+        self.compare_before_after(statuses_before, statuses_after)
 
-        before_ord: list[Status] = sorted(statuses_before, key=lambda s: s.status)  # noqa: E501
-        after_ord: list[Status] = sorted(statuses_after, key=lambda s: s.status)  # noqa: E501
+    def test_partial_update_status_without_values(
+            self,
+            session: Session,
+            created_statuses: list[Status],
+    ):
+        to_update = created_statuses[-1]
+        upd_status_num = to_update.status
+        url = f'/status/{upd_status_num}'
+        new_field_values = dict()
+
+        # Make copy of statuses to compare state of DB before and after query.
+        statuses_before = deepcopy(created_statuses)
+
+        # Make PATCH query.
+        response = self.client.patch(url, json=new_field_values)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        # Check than error message is returned.
+        body = response.json()
+        assert body is not None and isinstance(body, dict)
+        msg = self.empty_patch_body.format(Status.__name__, upd_status_num)
+        assert body == {'detail': msg}
+
+        # Check than objects in DB not changed.
+        statement = self.manager.filter()
+        statuses_after = session.scalars(statement).unique().all()
+        assert len(statuses_after) == len(statuses_before)
+        self.compare_before_after(statuses_before, statuses_after)
+
+    def compare_before_after(
+            self,
+            statuses_before: list[Status],
+            statuses_after: list[Status],
+    ):
+        before_ord = sorted(statuses_before, key=lambda s: s.status)
+        after_ord = sorted(statuses_after, key=lambda s: s.status)
         for before, after in zip(before_ord, after_ord):
             assert after.status == before.status
             assert after.description == before.description
