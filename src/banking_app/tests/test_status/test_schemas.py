@@ -73,7 +73,7 @@ class TestDescriptionField:
         argnames='raw_description,clean_description',
         argvalues=(
             pytest.param('s', 's', id="description='s'"),
-            pytest.param('s'*100, 's'*100, id="description='s'*100"),
+            pytest.param('s' * 100, 's' * 100, id="description='s'*100"),
         ),
     )
     def test_valid_values(self, raw_description, clean_description):

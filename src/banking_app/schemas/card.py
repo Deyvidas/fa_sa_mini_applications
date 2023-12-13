@@ -15,7 +15,7 @@ class CardDTO(Base):
     card_number: str = Field(
         min_length=16,
         max_length=16,
-        example='4188680335268618',
+        examples=['4188680335268618'],
     )
     card_type: CardType
     open_date: date
@@ -23,7 +23,7 @@ class CardDTO(Base):
     processed_datetime: datetime
     client_id: int = Field(
         gt=0,
-        example=12345
+        examples=[12345]
     )
 
     @model_validator(mode='after')

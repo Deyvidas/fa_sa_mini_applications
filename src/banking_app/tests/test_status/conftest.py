@@ -1,5 +1,8 @@
 import pytest
+
 from sqlalchemy.orm.session import Session
+
+from typing import Sequence
 
 from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
@@ -15,7 +18,7 @@ def statuses() -> list[StatusRetrieve]:
     last = 900
 
     statuses: list[StatusRetrieve] = list()
-    for i in range(first, last+1, 100):
+    for i in range(first, last + 1, 100):
         status = StatusRetrieve(
             status=i,
             description=f'Test description {i}',
@@ -29,13 +32,11 @@ def statuses() -> list[StatusRetrieve]:
 def created_statuses(
         session: Session,
         statuses: list[StatusRetrieve],
-) -> list[Status]:
+) -> Sequence[Status]:
     list_kwargs = [status.model_dump() for status in statuses]
     statement = manager.bulk_create(list_kwargs)
-    session.scalars(statement).unique().all()
+    instances = session.scalars(statement).unique().all()
     session.commit()
 
-    statement = manager.filter()
-    instances = session.scalars(statement).unique().all()
     assert len(instances) == len(statuses)
     return instances

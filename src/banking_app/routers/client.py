@@ -4,6 +4,8 @@ from fastapi import status
 
 from sqlalchemy.orm.session import Session
 
+from typing import Sequence
+
 from src.banking_app.conf import NotSpecifiedParam
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.client import ClientManager
@@ -29,10 +31,10 @@ router = APIRouter(
     response_model=list[ClientRetrieve],
 )
 def get_clients_filtered_by(
-        status_code: int = NotSpecifiedParam,
-        phone_number: str = NotSpecifiedParam,
-        has_vip_status: bool = NotSpecifiedParam,
-        sex: Sex = NotSpecifiedParam,
+        status_code: int = NotSpecifiedParam,                                   # type: ignore
+        phone_number: str = NotSpecifiedParam,                                  # type: ignore
+        has_vip_status: bool = NotSpecifiedParam,                               # type: ignore
+        sex: Sex = NotSpecifiedParam,                                           # type: ignore
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(
@@ -41,7 +43,7 @@ def get_clients_filtered_by(
         VIP_flag=has_vip_status,
         sex=sex,
     )
-    instances: list[Client] = session.scalars(statement).unique().all()
+    instances: Sequence[Client] = session.scalars(statement).unique().all()
     return [instance.to_dto_model(ClientRetrieve) for instance in instances]
 
 
@@ -52,7 +54,7 @@ def get_clients_filtered_by(
 )
 def get_all_clients(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances: list[Client] = session.scalars(statement).unique().all()
+    instances: Sequence[Client] = session.scalars(statement).unique().all()
     return [instance.to_dto_model(ClientRetrieve) for instance in instances]
 
 
@@ -67,7 +69,7 @@ def add_list_of_clients(
 ):
     list_kwargs = [data.model_dump() for data in clients_list]
     statement = manager.bulk_create(list_kwargs)
-    instances: list[Client] = session.scalars(statement).unique().all()
+    instances: Sequence[Client] = session.scalars(statement).unique().all()
     session.commit()
     return [instance.to_dto_model(ClientRetrieve) for instance in instances]
 

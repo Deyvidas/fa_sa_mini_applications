@@ -65,7 +65,7 @@ def switch_used_session_in_dependencies(session) -> None:
 
 
 @pytest.fixture
-def create_and_drop_tables(session: Session) -> None:
+def create_and_drop_tables(session: Session):
 
     try:
         engine.echo = False

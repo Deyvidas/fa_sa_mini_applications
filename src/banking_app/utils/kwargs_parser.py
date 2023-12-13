@@ -129,18 +129,22 @@ class KwargsParser:
     ) -> tuple[str, dict[str, str]]:
         """Install all required for statement execution modules."""
 
-        prefix = f'_{type(self).__name__}'
-        err = "raise ValueError(f'Module {} not found.')"
-        modules = [sys.modules.get(mod, err.format(mod)) for mod in modules]
+        module_objs = list()
+        for mod in modules:
+            module_obj = sys.modules.get(mod)
+            if module_obj is None:
+                raise ValueError(f'Module {mod} not found.')
+            module_objs.append(module_obj)
 
+        prefix = f'_{type(self).__name__}'
         model_type_name = f'{prefix}_{model.__name__}'
-        [setattr(mod, model_type_name, model) for mod in modules]
+        [setattr(mod, model_type_name, model) for mod in module_objs]
 
         for key, value in deepcopy(kwargs).items():
             kwargs[key] = self._set_dependencies_for_sequences(
                 value=value,
                 prefix=prefix,
-                modules=modules,
+                modules=module_objs,
             )
         return model_type_name, kwargs
 

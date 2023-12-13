@@ -1,6 +1,7 @@
 import pytest
 
 from typing import Any
+from typing import Sequence
 
 from sqlalchemy.orm.session import Session
 
@@ -36,7 +37,7 @@ class TestManager:
     ):
         list_kwargs = [status.model_dump() for status in statuses]
         bulk_create_stmt = self.manager.bulk_create(list_kwargs)
-        instances: list[Status] = session.scalars(bulk_create_stmt).unique().all()  # noqa: E501
+        instances: Sequence[Status] = session.scalars(bulk_create_stmt).unique().all()
         session.commit()
 
         assert len(instances) == len(statuses)
@@ -85,11 +86,11 @@ class TestManager:
             pytest.param(
                 dict(
                     status__in=(100, 400, 900),
-                    description__in=('Test description 400', 'Test description 900'),  # noqa: E501
+                    description__in=('Test description 400', 'Test description 900'),
                 ),
                 (
                     'lambda s: s.status in (100, 400, 900) and '
-                    's.description in ("Test description 400","Test description 900")'  # noqa: E501
+                    's.description in ("Test description 400","Test description 900")'
                 ),
                 id='filter with multi IN conditions'
             ),
@@ -103,7 +104,7 @@ class TestManager:
             filter_expr: str,
     ):
         statement = self.manager.filter(**filter_kwargs)
-        instances: list[Status] = session.scalars(statement).unique().all()
+        instances: Sequence[Status] = session.scalars(statement).unique().all()
         estimated_list = list(filter(eval(filter_expr), created_statuses))
 
         assert len(instances) == len(estimated_list)
@@ -146,7 +147,7 @@ class TestManager:
         if len(values) == 0:
             with pytest.raises(ValueError) as error:
                 self.manager.update(where=condition, set_value=values)
-            assert str(error.value) == 'Updating is not possible without new values, set_value={}.'  # noqa: E501
+            assert str(error.value) == 'Updating is not possible without new values, set_value={}.'
             return
 
         # Count amount of statuses which must be updated.
@@ -155,7 +156,7 @@ class TestManager:
         count = len(session.scalars(count_stmt).unique().all())
 
         # Updating statuses.
-        updated: list[Status] = session.scalars(statement).unique().all()
+        updated: Sequence[Status] = session.scalars(statement).unique().all()
         session.commit()
         assert len(updated) == count
 

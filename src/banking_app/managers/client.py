@@ -2,6 +2,8 @@ from sqlalchemy import Delete
 from sqlalchemy import Insert
 from sqlalchemy import Select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql.dml import ReturningDelete
+from sqlalchemy.sql.dml import ReturningInsert
 
 from typing import Any
 from typing import Type
@@ -21,15 +23,15 @@ class ClientManager(BaseManager):
         statement = self._enrich_statement(super().filter(**kwargs))
         return statement
 
-    def create(self, **kwargs) -> Insert:
+    def create(self, **kwargs) -> ReturningInsert:
         statement = self._enrich_statement(super().create(**kwargs))
         return statement
 
-    def bulk_create(self, list_kwargs: list[dict[str, Any]]) -> Insert:
+    def bulk_create(self, list_kwargs: list[dict[str, Any]]) -> ReturningInsert:
         statement = self._enrich_statement(super().bulk_create(list_kwargs))
         return statement
 
-    def delete(self, **kwargs: dict[str, Any]) -> Delete:
+    def delete(self, **kwargs) -> ReturningDelete:
         statement = self._enrich_statement(super().delete(**kwargs))
         return statement
 

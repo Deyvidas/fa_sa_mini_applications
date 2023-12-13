@@ -18,14 +18,14 @@ class BaseErrorMessage(BaseModel):
     detail: str = Field(default='', examples=[''])
 
 
-class NotFoundMessage(BaseModel):
+class NotFoundMessage(BaseErrorMessage):
     detail: str = Field(
         default='{model} with {kwargs} not found.',
         examples=['{model} with {key1}={value1}, ...=... not found.'],
     )
 
 
-class UniquesViolationMessage(BaseModel):
+class UniquesViolationMessage(BaseErrorMessage):
     detail: str = Field(
         default='{model} with {kwargs} already exists.',
         examples=[
@@ -34,7 +34,7 @@ class UniquesViolationMessage(BaseModel):
     )
 
 
-class EmptyBodyOnPatchMessage(BaseModel):
+class EmptyBodyOnPatchMessage(BaseErrorMessage):
     detail: str = Field(
         default='{model} with {kwargs} can\'t be updated, received empty body, change at least value of one field.',  # noqa: E501
         examples=['{model} with {key1}={value1}, ...=... can\'t be updated, received empty body, change at least value of one field.']  # noqa: E501
@@ -47,15 +47,15 @@ class ErrorTypeDetail(NamedTuple):
 
 
 class ErrorType(Enum):
-    NOT_FOUND_404: ErrorTypeDetail = ErrorTypeDetail(
+    NOT_FOUND_404 = ErrorTypeDetail(
         status_code=status.HTTP_404_NOT_FOUND,
         error_message=NotFoundMessage(),
     )
-    UNIQUE_VIOLATION_400: ErrorTypeDetail = ErrorTypeDetail(
+    UNIQUE_VIOLATION_400 = ErrorTypeDetail(
         status_code=status.HTTP_400_BAD_REQUEST,
         error_message=UniquesViolationMessage(),
     )
-    EMPTY_BODY_ON_PATCH_400: ErrorTypeDetail = ErrorTypeDetail(
+    EMPTY_BODY_ON_PATCH_400 = ErrorTypeDetail(
         status_code=status.HTTP_400_BAD_REQUEST,
         error_message=EmptyBodyOnPatchMessage(),
     )

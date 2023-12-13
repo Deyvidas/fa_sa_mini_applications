@@ -6,9 +6,9 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from sqlalchemy import String
-from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import mapped_column
+from sqlalchemy.types import DECIMAL
 
 from typing import Annotated
 from typing import Any
