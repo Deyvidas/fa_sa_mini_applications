@@ -2,11 +2,12 @@ import pytest
 
 from pydantic import ValidationError
 
+from src.banking_app.schemas.status import DescriptionOptional
 from src.banking_app.schemas.status import DescriptionRequired
 from src.banking_app.schemas.status import StatusRequired
 
 
-@pytest.mark.run(order=0.001)
+@pytest.mark.run(order=0.00_00)
 class TestStatusField:
 
     @pytest.mark.parametrize(
@@ -43,10 +44,9 @@ class TestStatusField:
         if status in (float('inf'), float('-inf')):
             msg = 'Input should be a finite number'
 
-        error = list(filter(
-            lambda e: e.get('msg') == msg, error.value.errors()
-        ))
-        assert len(error) == 1
+        errors = error.value.errors()
+        assert len(errors) == 1
+        assert errors[0]['msg'] == msg
 
     @pytest.mark.parametrize(
         argnames='status',
@@ -59,30 +59,42 @@ class TestStatusField:
     def test_can_be_only_digit(self, status):
         with pytest.raises(ValidationError) as error:
             StatusRequired(status=status)
-        msg = 'Input should be a valid integer'
-        error = list(filter(
-            lambda e: e.get('msg', '').startswith(msg), error.value.errors()
-        ))
-        assert len(error) == 1
+        errors = error.value.errors()
+        assert len(errors) == 1
+        assert errors[0]['msg'].startswith('Input should be a valid integer')
 
 
-@pytest.mark.run(order=0.002)
+@pytest.mark.run(order=0.00_01)
 class TestDescriptionField:
 
+    @pytest.mark.parametrize(
+        argnames='field',
+        argvalues=(
+            pytest.param(DescriptionOptional, id='optional'),
+            pytest.param(DescriptionRequired, id='required'),
+        ),
+    )
     @pytest.mark.parametrize(
         argnames='raw_description,clean_description',
         argvalues=(
             pytest.param('s', 's', id="description='s'"),
-            pytest.param('s' * 100, 's' * 100, id="description='s'*100"),
+            pytest.param('s' * 100, 's' * 100, id="description='s' * 100"),
         ),
     )
-    def test_valid_values(self, raw_description, clean_description):
+    def test_valid_values(self, field, raw_description, clean_description):
         try:
-            obj = DescriptionRequired(description=raw_description)
+            obj = field(description=raw_description)
             assert obj.description == clean_description
         except Exception:
             assert False
 
+    @pytest.mark.parametrize(
+        argnames='field',
+        argvalues=(
+            pytest.param(DescriptionOptional, id='optional'),
+            pytest.param(DescriptionRequired, id='required'),
+        ),
+    )
     @pytest.mark.parametrize(
         argnames='description,message',
         argvalues=(
@@ -98,27 +110,63 @@ class TestDescriptionField:
             ),
         ),
     )
-    def test_length_must_be_between_1_and_100(self, description, message):
+    def test_length_must_be_between_1_and_100(self, field, description, message):
         with pytest.raises(ValidationError) as error:
-            DescriptionRequired(description=description)
-        error = list(filter(
-            lambda e: e.get('msg') == message, error.value.errors()
-        ))
-        assert len(error) == 1
+            field(description=description)
+        errors = error.value.errors()
+        assert len(errors) == 1
+        assert errors[0]['msg'] == message
 
+    @pytest.mark.parametrize(
+        argnames='field',
+        argvalues=(
+            pytest.param(DescriptionOptional, id='optional'),
+            pytest.param(DescriptionRequired, id='required'),
+        ),
+    )
     @pytest.mark.parametrize(
         argnames='description',
         argvalues=(
             pytest.param(False, id='description=False'),
-            pytest.param(None, id='description=None'),
             pytest.param(['s'], id='description=["s"]'),
         ),
     )
-    def test_can_be_only_string(self, description):
+    def test_can_be_only_string(self, field, description):
         with pytest.raises(ValidationError) as error:
-            DescriptionRequired(description=description)
-        error = list(filter(
-            lambda e: e.get('msg') == 'Input should be a valid string',
-            error.value.errors()
-        ))
-        assert len(error) == 1
+            field(description=description)
+        errors = error.value.errors()
+        assert len(errors) == 1
+        assert errors[0]['msg'] == 'Input should be a valid string'
+
+    @pytest.mark.parametrize(
+        argnames='kwargs,message',
+        argvalues=(
+            pytest.param(
+                dict(),
+                'Field required',
+                id='without arguments'
+            ),
+            pytest.param(
+                dict(description=None),
+                'Input should be a valid string',
+                id='with None value'
+            ),
+        ),
+    )
+    def test_required_field(self, kwargs, message):
+        with pytest.raises(ValidationError) as error:
+            DescriptionRequired(**kwargs)
+        errors = error.value.errors()
+        assert len(errors) == 1
+        assert errors[0]['msg'] == message
+
+    @pytest.mark.parametrize(
+        argnames='kwargs',
+        argvalues=(
+            pytest.param(dict(), id='without arguments'),
+            pytest.param(dict(description=None), id='with None value'),
+        ),
+    )
+    def test_optional_field(self, kwargs):
+        dump = DescriptionOptional(**kwargs).model_dump()
+        assert dump == {'description': None}
