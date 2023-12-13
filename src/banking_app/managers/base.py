@@ -1,17 +1,22 @@
+from re import findall
+from re import sub
+
 from abc import ABC
 from abc import abstractmethod
 
 from typing import Any
+from typing import Type
 from typing import TypeVar
 
 from sqlalchemy import delete
-from sqlalchemy import Delete
 from sqlalchemy import insert
-from sqlalchemy import Insert
 from sqlalchemy import select
 from sqlalchemy import Select
 from sqlalchemy import update
-from sqlalchemy import Update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql.dml import ReturningDelete
+from sqlalchemy.sql.dml import ReturningInsert
+from sqlalchemy.sql.dml import ReturningUpdate
 
 from src.banking_app.conf import NotSpecifiedParam
 from src.banking_app.models.base import Base
@@ -22,7 +27,22 @@ class AbstractManager(ABC):
 
     @property
     @abstractmethod
-    def model(self) -> Base: ...
+    def model(self) -> Type[Base]:
+        ...
+
+
+class AlterManager(AbstractManager):
+    """Manager used to alter state in DB (create, update)."""
+
+    def parse_integrity_error(self, error: IntegrityError) -> dict[str, Any]:
+        """Parse IntegrityError message and return pairs key value."""
+
+        parsed_strings = findall(r'\(.+\)=\(.+\)', error._message())
+        keys_values = dict()
+        for raw_string in parsed_strings:
+            clean_string = sub(r'[\(\)]', '', raw_string)
+            keys_values.update(eval(f'dict({clean_string})'))
+        return keys_values
 
 
 class SelectManager(AbstractManager):
@@ -47,9 +67,9 @@ class SelectManager(AbstractManager):
         [kwargs.pop(key) for key in keys_to_pop]
 
 
-class CreateManager(AbstractManager):
+class CreateManager(AlterManager):
 
-    def create(self, **kwargs) -> Insert:
+    def create(self, **kwargs) -> ReturningInsert:
         statement = (
             insert(self.model).
             values(**kwargs).
@@ -57,7 +77,7 @@ class CreateManager(AbstractManager):
         )
         return statement
 
-    def bulk_create(self, list_kwargs: list[dict[str, Any]]) -> Insert:
+    def bulk_create(self, list_kwargs: list[dict[str, Any]]) -> ReturningInsert:
         statement = (
             insert(self.model).
             values(list_kwargs).
@@ -66,14 +86,14 @@ class CreateManager(AbstractManager):
         return statement
 
 
-class UpdateManager(AbstractManager):
+class UpdateManager(AlterManager):
 
     def update(
             self,
             *,
             where: dict[str, Any],
             set_value: dict[str, Any],
-    ) -> Update:
+    ) -> ReturningUpdate:
         if len(set_value) == 0:
             raise ValueError(
                 f'Updating is not possible without new values, {set_value=}.'
@@ -93,9 +113,9 @@ class UpdateManager(AbstractManager):
         return statement
 
 
-class DeleteManager(AbstractManager):
+class DeleteManager(AlterManager):
 
-    def delete(self, **where) -> Delete:
+    def delete(self, **where) -> ReturningDelete:
         conditions = KwargsParser().parse_kwargs(
             module_name=__name__,
             model=self.model,
@@ -109,7 +129,13 @@ class DeleteManager(AbstractManager):
         return statement
 
 
-AllStatements = TypeVar('AllStatements', Delete, Select, Insert, Update)
+AllStatements = TypeVar(
+    'AllStatements',
+    ReturningDelete,
+    ReturningInsert,
+    ReturningUpdate,
+    Select,
+)
 
 
 class BaseManager(SelectManager,
@@ -122,7 +148,12 @@ class BaseManager(SelectManager,
         return statement
 
 
-SeCrUpStmt = TypeVar('SeCrUpStmt', Select, Insert, Update)
+SeCrUpStmt = TypeVar(
+    'SeCrUpStmt',
+    ReturningInsert,
+    ReturningUpdate,
+    Select,
+)
 
 
 class SeCrUpManager(SelectManager,

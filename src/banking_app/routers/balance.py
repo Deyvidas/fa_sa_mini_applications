@@ -1,5 +1,3 @@
-import re
-
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import status
@@ -7,12 +5,11 @@ from fastapi import status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.session import Session
 
-from typing import NoReturn
+from typing import Sequence
 
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.balance import BalanceManager
 from src.banking_app.models.balance import Balance
-from src.banking_app.models.client import Client
 from src.banking_app.schemas.balance import BalanceCreate
 from src.banking_app.schemas.balance import BalanceRetrieve
 from src.banking_app.types.general import MoneyAmount
@@ -28,22 +25,6 @@ router = APIRouter(
 )
 
 
-def raise_client_not_found(error: IntegrityError) -> NoReturn:
-    """Parse IntegrityError message and raise exception."""
-    error_message = error.orig.diag.message_detail
-    key_value_regex = r'\(client_id\)=\([\d]+\)'
-    parenthesis_regex = r'[\(\)]'
-
-    key_value = re.findall(key_value_regex, error_message)[0]
-    key_value = re.sub(parenthesis_regex, '', key_value)
-
-    BaseExceptionRaiser(
-        model=Client,
-        error_type=ErrorType.NOT_FOUND_404,
-        kwargs=eval(f'dict({key_value})')
-    ).raise_exception()
-
-
 @router.get(
     path='/list-balances-between',
     status_code=status.HTTP_200_OK,
@@ -57,7 +38,7 @@ def get_balances_with_amount_between(
     statement = manager.filter(
         current_amount__between=(min_amount, max_amount)
     )
-    instances: list[Balance] = session.scalars(statement).unique().all()
+    instances: Sequence[Balance] = session.scalars(statement).unique().all()
     return [instance.to_dto_model(BalanceRetrieve) for instance in instances]
 
 
@@ -68,7 +49,7 @@ def get_balances_with_amount_between(
 )
 def get_all_balances(session: Session = Depends(activate_session)):
     statement = manager.filter()
-    instances: list[Balance] = session.scalars(statement).unique().all()
+    instances: Sequence[Balance] = session.scalars(statement).unique().all()
     return [instance.to_dto_model(BalanceRetrieve) for instance in instances]
 
 
@@ -87,17 +68,21 @@ def add_list_of_balances(
     list_kwargs = [balance.model_dump() for balance in balances_list]
     statement = manager.bulk_create(list_kwargs)
     try:
-        balances: list[Balance] = session.scalars(statement).unique().all()
+        balances: Sequence[Balance] = session.scalars(statement).unique().all()
         clients = set(balance.client for balance in balances)
         [client.actualize_balance() for client in clients]
         session.commit()
         return [balance.to_dto_model(BalanceRetrieve) for balance in balances]
     except IntegrityError as error:
         session.rollback()
-        if 'client_id' in error.orig.diag.message_detail:
-            raise_client_not_found(error)
-        else:
+        if 'client_id' not in error._message():
             raise
+        kwargs = manager.parse_integrity_error(error)
+        BaseExceptionRaiser(
+            model=Balance,
+            error_type=ErrorType.UNIQUE_VIOLATION_400,
+            kwargs=kwargs,
+        ).raise_exception()
 
 
 @router.post(
@@ -120,7 +105,11 @@ def add_balance(
         return instance.to_dto_model(BalanceRetrieve)
     except IntegrityError as error:
         session.rollback()
-        if 'client_id' in error.orig.diag.message_detail:
-            raise_client_not_found(error)
-        else:
+        if 'client_id' not in error._message():
             raise
+        kwargs = manager.parse_integrity_error(error)
+        BaseExceptionRaiser(
+            model=Balance,
+            error_type=ErrorType.UNIQUE_VIOLATION_400,
+            kwargs=kwargs,
+        ).raise_exception()
