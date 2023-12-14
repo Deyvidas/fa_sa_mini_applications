@@ -14,7 +14,7 @@ from src.banking_app.models.base import date_today
 from src.banking_app.models.base import int_pk
 from src.banking_app.models.base import str_10
 from src.banking_app.models.base import str_255
-from src.banking_app.types.client import Sex
+from src.banking_app.types.client import SexEnum
 
 if TYPE_CHECKING:
     from src.banking_app.models.balance import Balance
@@ -35,7 +35,7 @@ class Client(Base):
     phone: Mapped[str_10]
     VIP_flag: Mapped[bool] = mapped_column(default=False)
     birth_date: Mapped[date]
-    sex: Mapped[Sex]
+    sex: Mapped[SexEnum]
 
     status: Mapped[int] = mapped_column(
         ForeignKey(column='status_desc.status', ondelete='CASCADE'),

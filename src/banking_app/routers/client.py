@@ -12,7 +12,7 @@ from src.banking_app.managers.client import ClientManager
 from src.banking_app.models.client import Client
 from src.banking_app.schemas.client import ClientRetrieve
 from src.banking_app.schemas.client import ClientCreate
-from src.banking_app.types.client import Sex
+from src.banking_app.types.client import SexEnum
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import ErrorType
 from src.banking_app.utils.exceptions import NotFoundMessage
@@ -34,7 +34,7 @@ def get_clients_filtered_by(
         status_code: int = NotSpecifiedParam,                                   # type: ignore
         phone_number: str = NotSpecifiedParam,                                  # type: ignore
         has_vip_status: bool = NotSpecifiedParam,                               # type: ignore
-        sex: Sex = NotSpecifiedParam,                                           # type: ignore
+        sex: SexEnum = NotSpecifiedParam,                                       # type: ignore
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(
@@ -84,9 +84,15 @@ def add_client(
         session: Session = Depends(activate_session),
 ):
     statement = manager.create(**client_data.model_dump())
-    instance: Client = session.scalar(statement)
-    session.commit()
-    return instance.to_dto_model(ClientRetrieve)
+    instance = session.scalar(statement)
+    if isinstance(instance, Client):
+        session.commit()
+        return instance.to_dto_model(ClientRetrieve)
+    raise ValueError(
+        f'Something went wrong when try post to\n'
+        f' url={router.prefix}\n'
+        f'data={client_data.model_dump()}'
+    )
 
 
 @router.get(
@@ -102,8 +108,8 @@ def get_client_by_id(
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(client_id=client_id)
-    instance: Client = session.scalar(statement)
-    if instance is not None:
+    instance = session.scalar(statement)
+    if isinstance(instance, Client):
         return instance.to_dto_model(ClientRetrieve)
     BaseExceptionRaiser(
         model=Client,
@@ -125,10 +131,10 @@ def delete_client_with_id(
         session: Session = Depends(activate_session),
 ):
     statement = manager.delete(client_id=client_id)
-    instance: Client = session.scalar(statement)
+    instance = session.scalar(statement)
     session.commit()
 
-    if instance is not None:
+    if isinstance(instance, Client):
         return instance.to_dto_model(ClientRetrieve)
     BaseExceptionRaiser(
         model=Client,
