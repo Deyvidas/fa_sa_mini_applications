@@ -10,7 +10,7 @@ from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import StatusRetrieve
 
 
-@pytest.mark.run(order=1.001)
+@pytest.mark.run(order=1.00_00)
 @pytest.mark.usefixtures('create_and_drop_tables')
 class TestManager:
     manager = StatusManager()

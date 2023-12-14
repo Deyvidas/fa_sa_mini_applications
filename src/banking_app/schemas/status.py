@@ -1,21 +1,18 @@
 from typing import Annotated
-from typing import Optional
 
 from pydantic import Field
 
 from src.banking_app.schemas.base import Base
 
 
-Status = Annotated[
-    int,
-    Field(
+_status = Annotated[
+    int, Field(
         gt=0,
         examples=[100],
     )
 ]
-Description = Annotated[
-    str,
-    Field(
+_description = Annotated[
+    str, Field(
         min_length=1,
         max_length=100,
         examples=['Some description of status.'],
@@ -23,39 +20,23 @@ Description = Annotated[
 ]
 
 
-class StatusRequired(Base):
-    status: Status
+class BaseStatusModel(Base):
+    status: _status
+    description: _description
 
 
-class DescriptionRequired(Base):
-    description: Description
-
-
-class DescriptionOptional(DescriptionRequired):
-    description: Optional[Description] = None
-
-
-class StatusRetrieve(
-        DescriptionRequired,
-        StatusRequired,
-):
+class StatusRetrieve(BaseStatusModel):
     ...
 
 
-class StatusCreate(
-        DescriptionRequired,
-        StatusRequired,
-):
+class StatusCreate(BaseStatusModel):
     ...
 
 
-class StatusFullUpdate(
-        DescriptionRequired,
-):
-    ...
+class StatusFullUpdate(BaseStatusModel):
+    status: _status = Field(default=None, exclude=True)
 
 
-class StatusPartialUpdate(
-        DescriptionOptional,
-):
-    ...
+class StatusPartialUpdate(BaseStatusModel):
+    status: _status = Field(default=None, exclude=True)
+    description: _description = Field(default=None)

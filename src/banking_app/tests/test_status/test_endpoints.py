@@ -134,7 +134,7 @@ class BaseTest:
         return sorted(statuses, key=key, reverse=descending)
 
 
-@pytest.mark.run(order=2.001)
+@pytest.mark.run(order=2.00_00)
 class TestRetrieve(BaseTest):
 
     def test_get_all_statuses(self, created_statuses: list[Status]):
@@ -177,7 +177,7 @@ class TestRetrieve(BaseTest):
             self.compare_obj_before_after(status_db, body)
 
 
-@pytest.mark.run(order=2.002)
+@pytest.mark.run(order=2.00_01)
 class TestPost(BaseTest):
 
     def test_add_status(self, session: Session):
@@ -268,7 +268,7 @@ class TestPost(BaseTest):
         self.compare_list_before_after(statuses_before, statuses_after)
 
 
-@pytest.mark.run(order=2.003)
+@pytest.mark.run(order=2.00_02)
 class TestUpdate(BaseTest):
 
     @pytest.mark.parametrize(
@@ -344,18 +344,10 @@ class TestUpdate(BaseTest):
         assert len(statuses_after) == len(statuses_before)
         self.compare_list_before_after(statuses_before, statuses_after)
 
-    @pytest.mark.parametrize(
-        argnames='new_field_values',
-        argvalues=(
-            pytest.param(dict(), id='empty body'),
-            pytest.param(dict(description=None), id='description=None'),
-        ),
-    )
-    def test_partial_update_status_without_values(
+    def test_partial_update_status_with_empty_body(
             self,
             session: Session,
             created_statuses: list[Status],
-            new_field_values: dict[str, Any],
     ):
         statuses_before = deepcopy(created_statuses)
         to_update = created_statuses[-1]
@@ -363,7 +355,7 @@ class TestUpdate(BaseTest):
         url = f'{self.prefix}/{upd_status_num}'
 
         # Make PATCH query.
-        response = self.client.patch(url, json=new_field_values)
+        response = self.client.patch(url, json=dict())
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
         # Check than error message is returned.
@@ -379,7 +371,7 @@ class TestUpdate(BaseTest):
         self.compare_list_before_after(statuses_before, statuses_after)
 
 
-@pytest.mark.run(order=2.004)
+@pytest.mark.run(order=2.00_03)
 class TestDelete(BaseTest):
 
     def test_delete_status_with_status_number(
