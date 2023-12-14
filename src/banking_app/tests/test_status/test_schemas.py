@@ -1,6 +1,10 @@
 import pytest
 
+from copy import deepcopy
+
 from pydantic import ValidationError
+
+from typing import Any
 
 from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.schemas.status import StatusCreate
@@ -9,10 +13,14 @@ from src.banking_app.schemas.status import StatusPartialUpdate
 from src.banking_app.schemas.status import StatusRetrieve
 
 
-@pytest.fixture
-def data():
+def status_data() -> dict[str, Any]:
     default_data = dict(status=100, description='Test description')
-    return default_data
+    return deepcopy(default_data)
+
+
+@pytest.fixture()
+def data():
+    return status_data()
 
 
 @pytest.mark.run(order=0.00_00)

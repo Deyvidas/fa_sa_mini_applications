@@ -5,7 +5,7 @@ from copy import deepcopy
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from random import random
+from random import randint
 
 from sqlalchemy.orm.session import Session
 
@@ -48,7 +48,7 @@ class BaseTest:
             existent_statuses.append(value)
 
         while True:
-            num = int(random() * 100_000)
+            num = randint(10 ** 5, 10 ** 6 - 1)
             if num not in existent_statuses:
                 return num
 

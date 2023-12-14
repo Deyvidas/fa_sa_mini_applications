@@ -24,9 +24,10 @@ class TestManager:
         status = statuses[0]
 
         create_stmt = self.manager.create(**status.model_dump())
-        instance: Status = session.scalar(create_stmt)
+        instance = session.scalar(create_stmt)
         session.commit()
 
+        assert isinstance(instance, Status)
         assert instance.status == status.status
         assert instance.description == status.description
 
