@@ -145,108 +145,77 @@ class TestDescriptionField:
 class TestSideModels:
 
     @pytest.mark.parametrize(
-        argnames='data,messages',
+        argnames='exclude',
         argvalues=(
-            pytest.param(
-                dict(status=200, description='Test description'),
-                None,
-                id='with valid data'
-            ),
-            pytest.param(
-                dict(),
-                dict(status='Field required', description='Field required'),
-                id='without required fields'
-            ),
+            pytest.param('__not__', id='with all fields'),
+            pytest.param('__all__', id='without fields'),
         ),
     )
-    def test_StatusRetrieve(self, data, messages):
-        if messages is None:
-            obj = StatusRetrieve(**data)
-            for k, v in data.items():
-                assert getattr(obj, k) == v
-                return
-
-        with pytest.raises(ValidationError) as error:
-            StatusRetrieve(**data)
-        errors = error.value.errors()
-        assert len(errors) == len(messages)
-        for error in errors:
-            assert error['msg'] == messages[error['loc'][0]]
-
     @pytest.mark.parametrize(
-        argnames='data,messages',
+        argnames='model,required,defaults',
         argvalues=(
             pytest.param(
-                dict(status=200, description='Test description'),
-                None,
-                id='with valid data'
+                StatusRetrieve,
+                dict(
+                    status='Field required',
+                    description='Field required',
+                ),
+                dict(),
+                id='StatusRetrieve'
             ),
             pytest.param(
+                StatusCreate,
+                dict(
+                    status='Field required',
+                    description='Field required',
+                ),
                 dict(),
-                dict(status='Field required', description='Field required'),
-                id='without required fields'
+                id='StatusCreate'
+            ),
+            pytest.param(
+                StatusFullUpdate,
+                dict(
+                    description='Field required',
+                ),
+                dict(
+                    status=None,
+                ),
+                id='StatusFullUpdate'
+            ),
+            pytest.param(
+                StatusPartialUpdate,
+                dict(),
+                dict(
+                    status=None,
+                    description=None,
+                ),
+                id='StatusPartialUpdate'
             ),
         ),
     )
-    def test_StatusCreate(self, data, messages):
-        if messages is None:
-            obj = StatusCreate(**data)
-            for k, v in data.items():
+    def test_required_fields(self, data, exclude, model, required, defaults):
+        if exclude == '__not__':
+            obj = model(**data)
+            for f, v in data.items():
+                assert getattr(obj, f) == v
+            return
+
+        # Check if an exception was raised when the required field was missed.
+        if len(required) != 0:
+            with pytest.raises(ValidationError) as error:
+                model()
+            errors = error.value.errors()
+            assert len(errors) == len(required)
+            for error in errors:
+                assert error['msg'] == required[error['loc'][0]]
+
+        # Check the correct assignment of default values for empty optional fields.
+        if len(defaults) != 0:
+            data_without, expected_data = deepcopy(data), deepcopy(data)
+            for k, v in defaults.items():
+                data_without.pop(k)
+                expected_data[k] = v
+
+            obj = model(**data_without)
+            for k, v in expected_data.items():
                 assert getattr(obj, k) == v
-                return
-
-        with pytest.raises(ValidationError) as error:
-            StatusCreate(**data)
-        errors = error.value.errors()
-        assert len(errors) == len(messages)
-        for error in errors:
-            assert error['msg'] == messages[error['loc'][0]]
-
-    @pytest.mark.parametrize(
-        argnames='data,messages',
-        argvalues=(
-            pytest.param(
-                dict(description='Test description'),
-                None,
-                id='with valid data'
-            ),
-            pytest.param(
-                dict(),
-                dict(description='Field required'),
-                id='without required fields'
-            ),
-        ),
-    )
-    def test_StatusFullUpdate(self, data, messages):
-        if messages is None:
-            obj = StatusFullUpdate(**data)
-            for k, v in data.items():
-                assert getattr(obj, k) == v
-                return
-
-        with pytest.raises(ValidationError) as error:
-            StatusFullUpdate(**data)
-        errors = error.value.errors()
-        assert len(errors) == len(messages)
-        for error in errors:
-            assert error['msg'] == messages[error['loc'][0]]
-
-    @pytest.mark.parametrize(
-        argnames='raw_data,clean_data',
-        argvalues=(
-            pytest.param(
-                dict(description='Test description'),
-                dict(description='Test description'),
-                id='with valid data'
-            ),
-            pytest.param(
-                dict(),
-                dict(description=None),
-                id='without optionals fields'
-            ),
-        ),
-    )
-    def test_StatusPartialUpdate(self, raw_data, clean_data):
-        obj = StatusPartialUpdate(**raw_data)
-        for k, v in clean_data.items():
-            assert getattr(obj, k) == v

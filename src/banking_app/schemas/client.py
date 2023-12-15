@@ -110,8 +110,12 @@ class BaseClientModel(Base):
             dict(today=today)
         )
 
-    @model_validator(mode='after')  # model_validator validate after field_validator.
+    @model_validator(mode='after')
     def registration_cant_be_earlier_than_birth_date(self):
+        # reg_date is optional in some models and is excluded.
+        if self.reg_date is None and self.model_fields['reg_date'].exclude is True:
+            return self
+
         if (bd := self.birth_date) <= (rd := self.reg_date):
             return self
         raise PydanticCustomError(
