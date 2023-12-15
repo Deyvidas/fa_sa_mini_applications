@@ -4,23 +4,11 @@ from copy import deepcopy
 
 from pydantic import ValidationError
 
-from typing import Any
-
 from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.schemas.status import StatusCreate
 from src.banking_app.schemas.status import StatusFullUpdate
 from src.banking_app.schemas.status import StatusPartialUpdate
 from src.banking_app.schemas.status import StatusRetrieve
-
-
-def status_data() -> dict[str, Any]:
-    default_data = dict(status=100, description='Test description')
-    return deepcopy(default_data)
-
-
-@pytest.fixture()
-def data():
-    return status_data()
 
 
 @pytest.mark.run(order=0.00_00)
@@ -34,10 +22,10 @@ class TestStatusField:
             pytest.param(True, 1, id='status=True'),
         ),
     )
-    def test_valid_values(self, data, raw_status, clean_status):
-        data['status'] = raw_status
+    def test_valid_values(self, data_status, raw_status, clean_status):
+        data_status['status'] = raw_status
         try:
-            obj = BaseStatusModel(**data)
+            obj = BaseStatusModel(**data_status)
             assert obj.status == clean_status
         except Exception:
             assert False
@@ -53,10 +41,10 @@ class TestStatusField:
             pytest.param(float('-inf'), id='status=float(\'-inf\')'),
         ),
     )
-    def test_must_be_positive(self, data, status):
-        data['status'] = status
+    def test_must_be_positive(self, data_status, status):
+        data_status['status'] = status
         with pytest.raises(ValidationError) as error:
-            BaseStatusModel(**data)
+            BaseStatusModel(**data_status)
 
         msg = 'Input should be greater than 0'
         if status in (float('inf'), float('-inf')):
@@ -74,10 +62,10 @@ class TestStatusField:
             pytest.param(None, id='status=None'),
         ),
     )
-    def test_can_be_only_digit(self, data, status):
-        data['status'] = status
+    def test_can_be_only_digit(self, data_status, status):
+        data_status['status'] = status
         with pytest.raises(ValidationError) as error:
-            BaseStatusModel(**data)
+            BaseStatusModel(**data_status)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'].startswith('Input should be a valid integer')
@@ -93,10 +81,10 @@ class TestDescriptionField:
             pytest.param('s' * 100, 's' * 100, id='description=\'s\' * 100'),
         ),
     )
-    def test_valid_values(self, data, raw_description, clean_description):
-        data['description'] = raw_description
+    def test_valid_values(self, data_status, raw_description, clean_description):
+        data_status['description'] = raw_description
         try:
-            obj = BaseStatusModel(**data)
+            obj = BaseStatusModel(**data_status)
             assert obj.description == clean_description
         except Exception:
             assert False
@@ -116,10 +104,10 @@ class TestDescriptionField:
             ),
         ),
     )
-    def test_length_must_be_between_1_and_100(self, data, description, message):
-        data['description'] = description
+    def test_length_must_be_between_1_and_100(self, data_status, description, message):
+        data_status['description'] = description
         with pytest.raises(ValidationError) as error:
-            BaseStatusModel(**data)
+            BaseStatusModel(**data_status)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == message
@@ -132,10 +120,10 @@ class TestDescriptionField:
             pytest.param(None, id='description=None'),
         ),
     )
-    def test_can_be_only_string(self, data, description):
-        data['description'] = description
+    def test_can_be_only_string(self, data_status, description):
+        data_status['description'] = description
         with pytest.raises(ValidationError) as error:
-            BaseStatusModel(**data)
+            BaseStatusModel(**data_status)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -193,10 +181,10 @@ class TestSideModels:
             ),
         ),
     )
-    def test_required_fields(self, data, exclude, model, required, defaults):
+    def test_required_fields(self, data_status, exclude, model, required, defaults):
         if exclude == '__not__':
-            obj = model(**data)
-            for f, v in data.items():
+            obj = model(**data_status)
+            for f, v in data_status.items():
                 assert getattr(obj, f) == v
             return
 
@@ -211,7 +199,7 @@ class TestSideModels:
 
         # Check the correct assignment of default values for empty optional fields.
         if len(defaults) != 0:
-            data_without, expected_data = deepcopy(data), deepcopy(data)
+            data_without, expected_data = deepcopy(data_status), deepcopy(data_status)
             for k, v in defaults.items():
                 data_without.pop(k)
                 expected_data[k] = v

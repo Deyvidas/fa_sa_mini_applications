@@ -6,7 +6,6 @@ from datetime import timedelta
 
 from random import randint
 from pydantic import ValidationError
-from typing import Any
 
 from src.banking_app.conf import test_settings
 from src.banking_app.schemas.client import BaseClientModel
@@ -14,31 +13,8 @@ from src.banking_app.schemas.client import ClientCreate
 from src.banking_app.schemas.client import ClientFullUpdate
 from src.banking_app.schemas.client import ClientPartialUpdate
 from src.banking_app.schemas.client import ClientRetrieve
-from src.banking_app.schemas.status import StatusRetrieve
-from src.banking_app.tests.test_status.test_schemas import status_data
 from src.banking_app.types.client import SexEnum
-
-
-def client_data() -> dict[str, Any]:
-    status = StatusRetrieve(**status_data())
-    data = dict(
-        client_id=24,
-        full_name="Zimin Denis Dmitrievich",
-        birth_date=test_settings.get_date_today() - timedelta(days=360),
-        sex=SexEnum.MALE,
-        phone="9272554839",
-        doc_num="92 31",
-        doc_series="865734",
-        reg_date=test_settings.get_date_today(),
-        VIP_flag=False,
-        status=status,
-    )
-    return deepcopy(data)
-
-
-@pytest.fixture
-def data():
-    return client_data()
+from src.banking_app.tests.test_client.conftest import dates
 
 
 @pytest.mark.run(order=0.01_00)
@@ -52,9 +28,9 @@ class TestClientIdField:
             pytest.param(True, 1, id='client_id=True'),
         ),
     )
-    def test_valid_values(self, data, raw_value, clean_value):
-        data['client_id'] = raw_value
-        obj = BaseClientModel(**data)
+    def test_valid_values(self, data_client, raw_value, clean_value):
+        data_client['client_id'] = raw_value
+        obj = BaseClientModel(**data_client)
         assert obj.client_id == clean_value
 
     @pytest.mark.parametrize(
@@ -68,10 +44,10 @@ class TestClientIdField:
             pytest.param(float('-inf'), id='client_id=float(\'-inf\')'),
         ),
     )
-    def test_must_be_positive(self, data, value):
-        data['client_id'] = value
+    def test_must_be_positive(self, data_client, value):
+        data_client['client_id'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
 
         msg = 'Input should be greater than 0'
         if value in (float('inf'), float('-inf')):
@@ -89,10 +65,10 @@ class TestClientIdField:
             pytest.param(None, id='client_id=None'),
         ),
     )
-    def test_can_be_only_digit(self, data, value):
-        data['client_id'] = value
+    def test_can_be_only_digit(self, data_client, value):
+        data_client['client_id'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'].startswith('Input should be a valid integer')
@@ -111,9 +87,9 @@ class TestFullNameField:
             pytest.param(long_valid_string, id='Name Lname Fname with len(255)'),
         ),
     )
-    def test_valid_values(self, data, value):
-        data['full_name'] = value
-        obj = BaseClientModel(**data)
+    def test_valid_values(self, data_client, value):
+        data_client['full_name'] = value
+        obj = BaseClientModel(**data_client)
         assert obj.full_name == value
 
     @pytest.mark.parametrize(
@@ -141,10 +117,10 @@ class TestFullNameField:
             ),
         ),
     )
-    def test_must_contain_3_capitalized_string(self, data, value):
-        data['full_name'] = value
+    def test_must_contain_3_capitalized_string(self, data_client, value):
+        data_client['full_name'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == f'String should match pattern \'{self.used_pattern}\''
@@ -158,10 +134,10 @@ class TestFullNameField:
             pytest.param(None, id='full_name=None'),
         ),
     )
-    def test_must_contain_only_string(self, data, value):
-        data['full_name'] = value
+    def test_must_contain_only_string(self, data_client, value):
+        data_client['full_name'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -174,42 +150,42 @@ class TestBirthDateField:
         argnames='raw_value,clean_value',
         argvalues=(
             pytest.param(
-                client_data()['reg_date'],
-                client_data()['reg_date'],
+                dates['reg_date'],
+                dates['reg_date'],
                 id='birth_date == reg_date'
             ),
             pytest.param(
-                client_data()['reg_date'] - timedelta(days=1),
-                client_data()['reg_date'] - timedelta(days=1),
+                dates['reg_date'] - timedelta(days=1),
+                dates['reg_date'] - timedelta(days=1),
                 id='birth_date < reg_date'
             ),
             pytest.param(
-                str(client_data()['reg_date']),
-                client_data()['reg_date'],
+                str(dates['birth_date']),
+                dates['birth_date'],
                 id='date as string'
             ),
         ),
     )
-    def test_valid_values(self, freezer, data, raw_value, clean_value):
-        data['birth_date'] = raw_value
-        obj = BaseClientModel(**data)
+    def test_valid_values(self, freezer, data_client, raw_value, clean_value):
+        data_client['birth_date'] = raw_value
+        obj = BaseClientModel(**data_client)
         assert obj.birth_date == clean_value
 
-    def test_cant_be_in_future(self, freezer, data):
-        data['birth_date'] = test_settings.get_date_today() + timedelta(days=1)
+    def test_cant_be_in_future(self, freezer, data_client):
+        data_client['birth_date'] = test_settings.get_date_today() + timedelta(days=1)
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == (
             f'Birth date cannot be after {test_settings.get_date_today()}.'
         )
 
-    def test_cant_be_after_registration_date(self, freezer, data):
-        data['reg_date'] = (rd := data['reg_date'] - timedelta(days=1))
-        data['birth_date'] = (bd := rd + timedelta(days=1))
+    def test_cant_be_after_registration_date(self, freezer, data_client):
+        data_client['reg_date'] = (rd := data_client['reg_date'] - timedelta(days=1))
+        data_client['birth_date'] = (bd := rd + timedelta(days=1))
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == (
@@ -220,14 +196,14 @@ class TestBirthDateField:
         argnames='value',
         argvalues=(
             pytest.param(False, id='birth_date=False'),
-            pytest.param([client_data()['birth_date']], id='birth_date=[date]'),
+            pytest.param([dates['birth_date']], id='birth_date=[date]'),
             pytest.param(None, id='birth_date=None'),
         ),
     )
-    def test_must_be_only_date_or_compatible_to_date_string(self, data, value):
-        data['birth_date'] = value
+    def test_must_be_only_date_or_compatible_to_date_string(self, data_client, value):
+        data_client['birth_date'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid date'
@@ -245,9 +221,9 @@ class TestSexField:
             pytest.param('F', SexEnum.FEMALE, id='sex=\'F\''),
         ),
     )
-    def test_valid_values(self, data, raw_value, clean_value):
-        data['sex'] = raw_value
-        obj = BaseClientModel(**data)
+    def test_valid_values(self, data_client, raw_value, clean_value):
+        data_client['sex'] = raw_value
+        obj = BaseClientModel(**data_client)
         assert obj.sex == clean_value
 
     @pytest.mark.parametrize(
@@ -260,10 +236,10 @@ class TestSexField:
             pytest.param([SexEnum.MALE, SexEnum.FEMALE], id='sex=[SexEnum.MALE, SexEnum.FEMALE]'),
         ),
     )
-    def test_invalid_values(self, data, value):
-        data['sex'] = value
+    def test_invalid_values(self, data_client, value):
+        data_client['sex'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be \'M\' or \'F\''
@@ -272,10 +248,10 @@ class TestSexField:
 @pytest.mark.run(order=0.01_04)
 class TestPhoneField:
 
-    def test_valid_values(self, data):
+    def test_valid_values(self, data_client):
         phone = str(randint(10 ** 9, 10 ** 10 - 1))
-        data['phone'] = phone
-        obj = BaseClientModel(**data)
+        data_client['phone'] = phone
+        obj = BaseClientModel(**data_client)
         assert obj.phone == phone
 
     @pytest.mark.parametrize(
@@ -308,10 +284,10 @@ class TestPhoneField:
             ),
         ),
     )
-    def test_must_contain_string_digits_length_10(self, data, value, error_msg):
-        data['phone'] = value
+    def test_must_contain_string_digits_length_10(self, data_client, value, error_msg):
+        data_client['phone'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == error_msg
@@ -325,10 +301,10 @@ class TestPhoneField:
             pytest.param(None, id='phone=None'),
         ),
     )
-    def test_must_contain_only_string(self, data, value):
-        data['phone'] = value
+    def test_must_contain_only_string(self, data_client, value):
+        data_client['phone'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -343,9 +319,9 @@ class TestDocNumField:
             pytest.param('00 99', id='doc_num=\'00 99\''),
         ),
     )
-    def test_valid_values(self, data, value):
-        data['doc_num'] = value
-        obj = BaseClientModel(**data)
+    def test_valid_values(self, data_client, value):
+        data_client['doc_num'] = value
+        obj = BaseClientModel(**data_client)
         assert obj.doc_num == value
 
     @pytest.mark.parametrize(
@@ -378,10 +354,10 @@ class TestDocNumField:
             ),
         ),
     )
-    def test_must_be_string_with_digits_len_5_valid_format(self, data, value, error_message):
-        data['doc_num'] = value
+    def test_must_be_string_with_digits_len_5_valid_format(self, data_client, value, error_message):
+        data_client['doc_num'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == error_message
@@ -395,10 +371,10 @@ class TestDocNumField:
             pytest.param(['00 99'], id='doc_num=[\'00 99\']'),
         ),
     )
-    def test_must_contain_only_string(self, data, value):
-        data['doc_num'] = value
+    def test_must_contain_only_string(self, data_client, value):
+        data_client['doc_num'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -413,9 +389,9 @@ class TestDocSeriesField:
             pytest.param('005599', id='doc_series=\'005599\''),
         ),
     )
-    def test_valid_values(self, data, value):
-        data['doc_series'] = value
-        obj = BaseClientModel(**data)
+    def test_valid_values(self, data_client, value):
+        data_client['doc_series'] = value
+        obj = BaseClientModel(**data_client)
         assert obj.doc_series == value
 
     @pytest.mark.parametrize(
@@ -439,10 +415,10 @@ class TestDocSeriesField:
                 id='doc_series=\'005 599\''),
         ),
     )
-    def test_must_be_string_with_digits_len_6(self, data, value, error_message):
-        data['doc_series'] = value
+    def test_must_be_string_with_digits_len_6(self, data_client, value, error_message):
+        data_client['doc_series'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == error_message
@@ -456,10 +432,10 @@ class TestDocSeriesField:
             pytest.param(True, id='doc_series=True'),
         ),
     )
-    def test_must_contain_only_string(self, data, value):
-        data['doc_series'] = value
+    def test_must_contain_only_string(self, data_client, value):
+        data_client['doc_series'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -469,32 +445,45 @@ class TestDocSeriesField:
 class TestRegDateField:
 
     @pytest.mark.parametrize(
-        argnames='value',
+        argnames='raw_value, clean_value',
         argvalues=(
-            pytest.param(test_settings.get_date_today(), id='reg_date=date.today()'),
-            pytest.param(str(test_settings.get_date_today()), id='reg_date=str(date.today())'),
+            pytest.param(
+                dates['birth_date'],
+                dates['birth_date'],
+                id='reg_date == birth_date'
+            ),
+            pytest.param(
+                dates['birth_date'] + timedelta(days=1),
+                dates['birth_date'] + timedelta(days=1),
+                id='reg_date > birth_date'
+            ),
+            pytest.param(
+                str(dates['birth_date']),
+                dates['birth_date'],
+                id='reg_date=str(date.today())'
+            ),
         ),
     )
-    def test_valid_values(self, freezer, data, value):
-        data['reg_date'] = value
-        obj = BaseClientModel(**data)
-        assert obj.reg_date == test_settings.get_date_today()
+    def test_valid_values(self, freezer, data_client, raw_value, clean_value):
+        data_client['reg_date'] = raw_value
+        obj = BaseClientModel(**data_client)
+        assert obj.reg_date == clean_value
 
-    def test_cant_be_in_future(self, freezer, data):
-        data['reg_date'] = test_settings.get_date_today() + timedelta(days=1)
+    def test_cant_be_in_future(self, freezer, data_client):
+        data_client['reg_date'] = test_settings.get_date_today() + timedelta(days=1)
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == (
             f'Registration date cannot be after {test_settings.get_date_today()}.'
         )
 
-    def test_cant_be_earlier_than_birth_date(self, freezer, data):
-        data['birth_date'] = (bd := test_settings.get_date_today())
-        data['reg_date'] = (rd := bd - timedelta(days=1))
+    def test_cant_be_earlier_than_birth_date(self, freezer, data_client):
+        data_client['birth_date'] = (bd := test_settings.get_date_today())
+        data_client['reg_date'] = (rd := bd - timedelta(days=1))
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == (
@@ -505,14 +494,14 @@ class TestRegDateField:
         argnames='value',
         argvalues=(
             pytest.param(False, id='reg_date=False'),
-            pytest.param([client_data()['reg_date']], id='reg_date=[date]'),
+            pytest.param([dates['reg_date']], id='reg_date=[date]'),
             pytest.param(None, id='reg_date=None'),
         ),
     )
-    def test_must_be_only_date_or_compatible_to_date_string(self, data, value):
-        data['reg_date'] = value
+    def test_must_be_only_date_or_compatible_to_date_string(self, data_client, value):
+        data_client['reg_date'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid date'
@@ -534,10 +523,10 @@ class TestVipFlagField:
             pytest.param(('y', 'n'), id='VIP_flag=\'y\'|\'n\''),
         ),
     )
-    def test_valid_values(self, data, values):
+    def test_valid_values(self, data_client, values):
         for raw_value, clean_value in zip(values, (True, False)):
-            data['VIP_flag'] = raw_value
-            obj = BaseClientModel(**data)
+            data_client['VIP_flag'] = raw_value
+            obj = BaseClientModel(**data_client)
             assert obj.VIP_flag is clean_value
 
     @pytest.mark.parametrize(
@@ -547,10 +536,10 @@ class TestVipFlagField:
             pytest.param(['true'], id='VIP_flag=[\'true\']'),
         ),
     )
-    def test_invalid_values(self, data, value):
-        data['VIP_flag'] = value
+    def test_invalid_values(self, data_client, value):
+        data_client['VIP_flag'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data)
+            BaseClientModel(**data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid boolean'
@@ -641,10 +630,10 @@ class TestSideModels:
             ),
         ),
     )
-    def test_required_fields(self, data, exclude, model, required, defaults):
+    def test_required_fields(self, data_client, exclude, model, required, defaults):
         if exclude == '__not__':
-            obj = model(**data)
-            for f, v in data.items():
+            obj = model(**data_client)
+            for f, v in data_client.items():
                 assert getattr(obj, f) == v
             return
 
@@ -659,7 +648,7 @@ class TestSideModels:
 
         # Check the correct assignment of default values for empty optional fields.
         if len(defaults) != 0:
-            data_without, expected_data = deepcopy(data), deepcopy(data)
+            data_without, expected_data = deepcopy(data_client), deepcopy(data_client)
             for k, v in defaults.items():
                 data_without.pop(k)
                 expected_data[k] = v

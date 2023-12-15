@@ -9,6 +9,16 @@ from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import StatusRetrieve
 
 
+@pytest.fixture()
+def data_status():
+    """Fixture used into test_schemas."""
+    default_data = dict(
+        status=100,
+        description='Test description',
+    )
+    return default_data
+
+
 manager = StatusManager()
 
 

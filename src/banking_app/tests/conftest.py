@@ -17,6 +17,16 @@ from src.banking_app.main import banking_app
 from src.banking_app.models.base import Base
 
 
+from src.banking_app.tests.test_status.conftest import data_status
+from src.banking_app.tests.test_client.conftest import data_client
+
+
+__all__ = [
+    'data_status',
+    'data_client',
+]
+
+
 engine = create_engine(
     url=test_settings.DB_URL,
     echo=test_settings.ENGINE_ECHO,
