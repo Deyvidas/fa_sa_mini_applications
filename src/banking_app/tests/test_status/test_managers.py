@@ -77,13 +77,11 @@ class TestBulkCreate(BaseTestStatus):
         statement = self.manager.bulk_create(list_kwargs)
         instances = session.scalars(statement).unique().all()
         session.commit()
-        assert len(instances) == len(list_kwargs)
         self.compare_list_before_after(list_kwargs, instances)
 
         # Check that objects have been created in the DB.
         statement = select(self.model)
         instances_after = session.scalars(statement).unique().all()
-        assert len(instances_after) == len(instances)
         self.compare_list_before_after(list_kwargs, instances_after)
 
     def test_with_some_not_unique(
@@ -112,7 +110,6 @@ class TestBulkCreate(BaseTestStatus):
         session.rollback()
         statement = select(self.model)
         instances_after = session.scalars(statement).unique().all()
-        assert len(instances_after) == len(instances)
         self.compare_list_before_after(instances, instances_after)
 
 
@@ -127,7 +124,6 @@ class TestFilter(BaseTestStatus):
         # Check that filtering without parameters returns all objects from the DB.
         statement = self.manager.filter()
         instances = session.scalars(statement).unique().all()
-        assert len(instances) == len(statuses_orm)
         self.compare_list_before_after(statuses_orm, instances)
 
     def test_by_status_number(
@@ -210,5 +206,60 @@ class TestUpdate(BaseTestStatus):
         # Ensure that the objects in the DB not been changed.
         statement = self.manager.filter()
         statuses_after = session.scalars(statement).unique().all()
-        assert len(statuses_after) == len(statuses_before)
+        self.compare_list_before_after(statuses_before, statuses_after)
+
+    def test_update_without_new_values(self, statuses_orm: list[Status]):
+        # Make an attempt to create statement without values.
+        status = choice(statuses_orm).status
+        with pytest.raises(ValueError) as error:
+            self.manager.update(where=dict(status=status), set_value=dict())
+        msg = 'Without new values, updating can\'t proceed, set_value={}.'
+        assert str(error.value) == msg
+
+
+@pytest.mark.run(order=1.00_04)
+class TestDelete(BaseTestStatus):
+
+    def test_delete_status_with_status_number(
+            self,
+            session: Session,
+            statuses_orm: list[Status],
+    ):
+        count_before = len(statuses_orm)
+        status_to_delete = choice(statuses_orm)
+
+        # The deleted instance must be returned after delete.
+        statement = self.manager.delete(status=status_to_delete.status)
+        instance = session.scalars(statement).unique().all()
+        session.commit()
+        assert len(instance) == 1
+        self.compare_obj_before_after(status_to_delete, instance[0])
+
+        # Ensure that the object is deleted from the DB.
+        statement = self.manager.filter()
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) == count_before - 1
+
+        exp = [f's.{f}=={repr(getattr(status_to_delete, f))}' for f in self.fields]
+        exp = ' and '.join(exp)  # "s.status==... and s.description=='...' and ..."
+        found = list(filter(lambda s: eval(exp), instances))
+        assert len(found) == 0
+
+    def test_delete_unexistent_status(
+            self,
+            session: Session,
+            statuses_orm: list[Status],
+    ):
+        statuses_before = deepcopy(statuses_orm)
+
+        # Make an attempt to delete the status with an unexistent status_num.
+        unexist_status_num = self.get_unexistent_status_num(statuses_orm)
+        statement = self.manager.delete(status=unexist_status_num)
+        instance = session.scalars(statement).unique().all()
+        session.commit()
+        assert len(instance) == 0
+
+        # Ensure that the objects in the DB not been changed.
+        statement = self.manager.filter()
+        statuses_after = session.scalars(statement).unique().all()
         self.compare_list_before_after(statuses_before, statuses_after)
