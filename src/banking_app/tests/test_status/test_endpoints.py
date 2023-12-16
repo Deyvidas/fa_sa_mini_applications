@@ -2,16 +2,17 @@ import pytest
 
 from copy import deepcopy
 from fastapi import status
+from random import choice
 from sqlalchemy.orm.session import Session
 from typing import Sequence
 
 from src.banking_app.models.status import Status
-from src.banking_app.schemas.status import StatusRetrieve
-from src.banking_app.tests.test_status.conftest import BaseTestStatus as BaseTest
+from src.banking_app.schemas.status import BaseStatusModel
+from src.banking_app.tests.test_status.conftest import BaseTestStatus
 
 
 @pytest.mark.run(order=2.00_00)
-class TestRetrieve(BaseTest):
+class TestRetrieve(BaseTestStatus):
 
     def test_get_all_statuses(self, statuses_orm: list[Status]):
         response = self.client.get(f'{self.prefix}/list')
@@ -20,6 +21,7 @@ class TestRetrieve(BaseTest):
         body = response.json()
         assert body is not None and isinstance(body, list)
         assert len(body) == len(statuses_orm)
+        self.compare_list_before_after(statuses_orm, body)
 
     @pytest.mark.parametrize(
         argnames='status_code',
@@ -39,7 +41,7 @@ class TestRetrieve(BaseTest):
             response = self.client.get(f'{self.prefix}/{unexist_status}')
             assert response.status_code == status_code
 
-            msg = self.not_found_msg.format(Status.__name__, unexist_status)
+            msg = self.not_found_msg(status=unexist_status)
             assert response.json() == {'detail': msg}
             return
 
@@ -54,16 +56,21 @@ class TestRetrieve(BaseTest):
 
 
 @pytest.mark.run(order=2.00_01)
-class TestPost(BaseTest):
+class TestPost(BaseTestStatus):
 
-    def test_add_status(self, session: Session):
+    def test_add_status(
+            self,
+            session: Session,
+            statuses_dto: list[BaseStatusModel],
+    ):
+        # Check that the DB is empty.
         statement = self.manager.filter()
         instances = session.scalars(statement).unique().all()
         assert len(instances) == 0
 
         # Make POST query.
-        new_status = dict(status=1000, description='Test status number 1000.')
-        response = self.client.post(f'{self.prefix}', json=new_status)
+        new_status = choice(statuses_dto)
+        response = self.client.post(f'{self.prefix}', json=new_status.model_dump())
         assert response.status_code == status.HTTP_201_CREATED
 
         # Expect than posted status was returned.
@@ -80,22 +87,24 @@ class TestPost(BaseTest):
 
         # Then POST status with already existed status (status must be unique).
         invalid_status = dict(
-            status=new_status['status'],
-            description='New status description.',
+            status=new_status.status,
+            description=f'{new_status.description} (new)',
         )
         response = self.client.post(f'{self.prefix}', json=invalid_status)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
         # Check if an appropriate error message was returned.
-        msg = self.not_unique_msg.format(Status.__name__, invalid_status['status'])
+        msg = self.not_unique_msg(status=invalid_status['status'])
         assert response.json() == {'detail': msg}
 
     def test_add_statuses(
             self,
             session: Session,
-            statuses_dto: list[StatusRetrieve],
+            statuses_dto: list[BaseStatusModel],
     ):
         url = f'{self.prefix}/list'
+
+        # Check that the DB is empty.
         statement = self.manager.filter()
         instances = session.scalars(statement).unique().all()
         assert len(instances) == 0
@@ -132,13 +141,13 @@ class TestPost(BaseTest):
                 status=unexist_status_num,
                 description=f'Test description {unexist_status_num}',
             ))
-        existent_status = [statuses_data[-1]]
+        existent_status = [choice(statuses_data)]
 
         response = self.client.post(url, json=new_statuses + existent_status)  # Invalid status placed at the last!
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
         # Check if an appropriate error message was returned.
-        msg = self.not_unique_msg.format(Status.__name__, existent_status[0]['status'])
+        msg = self.not_unique_msg(status=existent_status[0]['status'])
         assert response.json() == {'detail': msg}
 
         # Check if the state of the DB has not changed.
@@ -149,7 +158,7 @@ class TestPost(BaseTest):
 
 
 @pytest.mark.run(order=2.00_02)
-class TestUpdate(BaseTest):
+class TestUpdate(BaseTestStatus):
 
     @pytest.mark.parametrize(
         argnames='method',
@@ -172,7 +181,7 @@ class TestUpdate(BaseTest):
         if query_function is None:
             assert False, f'Method `{method}` is not provided for this test.'
 
-        to_update = statuses_orm[-1]
+        to_update = choice(statuses_orm)
         upd_status_num = to_update.status
         url = f'{self.prefix}/{upd_status_num}'
         new_field_values = dict(description=f'New description for {method}.')
@@ -215,7 +224,7 @@ class TestUpdate(BaseTest):
         # Check than not found message is returned.
         body = response.json()
         assert body is not None and isinstance(body, dict)
-        msg = self.not_found_msg.format(Status.__name__, unexist_status)
+        msg = self.not_found_msg(status=unexist_status)
         assert body == {'detail': msg}
 
         # Check than objects in DB not changed.
@@ -230,7 +239,7 @@ class TestUpdate(BaseTest):
             statuses_orm: list[Status],
     ):
         statuses_before = deepcopy(statuses_orm)
-        to_update = statuses_orm[-1]
+        to_update = choice(statuses_orm)
         upd_status_num = to_update.status
         url = f'{self.prefix}/{upd_status_num}'
 
@@ -241,7 +250,7 @@ class TestUpdate(BaseTest):
         # Check than error message is returned.
         body = response.json()
         assert body is not None and isinstance(body, dict)
-        msg = self.empty_patch_body.format(Status.__name__, upd_status_num)
+        msg = self.empty_patch_body(status=upd_status_num)
         assert body == {'detail': msg}
 
         # Check than objects in DB not changed.
@@ -252,7 +261,7 @@ class TestUpdate(BaseTest):
 
 
 @pytest.mark.run(order=2.00_03)
-class TestDelete(BaseTest):
+class TestDelete(BaseTestStatus):
 
     def test_delete_status_with_status_number(
             self,
@@ -260,7 +269,7 @@ class TestDelete(BaseTest):
             statuses_orm: list[Status],
     ):
         count = len(statuses_orm)
-        status_to_delete = statuses_orm[-1]
+        status_to_delete = choice(statuses_orm)
         del_status_num = status_to_delete.status
         url = f'{self.prefix}/{del_status_num}'
 
@@ -272,23 +281,21 @@ class TestDelete(BaseTest):
         body = response.json()
         assert body is not None and isinstance(body, dict)
         assert set(body.keys()) == set(self.fields)
-        assert body['status'] == del_status_num
-        self.compare_obj_before_after(
-            status_to_delete,
-            body,
-            exclude=['status'],
-        )
+        self.compare_obj_before_after(status_to_delete, body)
 
         # Check than status isn't in the DB.
         statement = self.manager.filter()
         statuses = session.scalars(statement).unique().all()
         assert len(statuses) == (count - 1)
-        assert status_to_delete not in statuses
+        exp = [f's.{f}=={repr(getattr(status_to_delete, f))}' for f in self.fields]
+        exp = ' and '.join(exp)
+        found = list(filter(lambda s: eval(exp), statuses))
+        assert len(found) == 0
 
         # Then try DELETE not existent status.
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
-        msg = self.not_found_msg.format(Status.__name__, del_status_num)
+        msg = self.not_found_msg(status=del_status_num)
         assert response.json() == {'detail': msg}
 
         # Check that unsuccessful deletion does not change the len and attributes in the database.

@@ -8,7 +8,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import select
 
 from src.banking_app.models.status import Status
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.tests.test_status.conftest import BaseTestStatus
 
 
@@ -18,7 +18,7 @@ class TestCreate(BaseTestStatus):
     def test_base(
             self,
             session: Session,
-            statuses_dto: list[StatusRetrieve],
+            statuses_dto: list[BaseStatusModel],
     ):
         status_dto = choice(statuses_dto)
 
@@ -30,7 +30,7 @@ class TestCreate(BaseTestStatus):
         self.compare_obj_before_after(status_dto, instances[0])
 
         # Check that the object has been created in the DB.
-        statement = select(self.model)
+        statement = select(self.model_orm)
         instances_after = session.scalars(statement).unique().all()
         assert len(instances_after) == 1
         self.compare_obj_before_after(instances[0], instances_after[0])
@@ -38,7 +38,7 @@ class TestCreate(BaseTestStatus):
     def test_not_unique(
             self,
             session: Session,
-            statuses_dto: list[StatusRetrieve],
+            statuses_dto: list[BaseStatusModel],
     ):
         status_dto = choice(statuses_dto)
 
@@ -57,7 +57,7 @@ class TestCreate(BaseTestStatus):
 
         # Check that there are no changes in the DB.
         session.rollback()
-        statement = select(self.model)
+        statement = select(self.model_orm)
         instances = session.scalars(statement).unique().all()
         assert len(instances) == 1
         self.compare_obj_before_after(instance, instances[0])
@@ -69,7 +69,7 @@ class TestBulkCreate(BaseTestStatus):
     def test_base(
             self,
             session: Session,
-            statuses_dto: list[StatusRetrieve],
+            statuses_dto: list[BaseStatusModel],
     ):
         list_kwargs = [s.model_dump() for s in statuses_dto]
 
@@ -80,14 +80,14 @@ class TestBulkCreate(BaseTestStatus):
         self.compare_list_before_after(list_kwargs, instances)
 
         # Check that objects have been created in the DB.
-        statement = select(self.model)
+        statement = select(self.model_orm)
         instances_after = session.scalars(statement).unique().all()
         self.compare_list_before_after(list_kwargs, instances_after)
 
     def test_with_some_not_unique(
             self,
             session: Session,
-            statuses_dto: list[StatusRetrieve]
+            statuses_dto: list[BaseStatusModel]
     ):
         half = int(len(statuses_dto) / 2)
 
@@ -108,7 +108,7 @@ class TestBulkCreate(BaseTestStatus):
 
         # Check that there are no changes in the DB.
         session.rollback()
-        statement = select(self.model)
+        statement = select(self.model_orm)
         instances_after = session.scalars(statement).unique().all()
         self.compare_list_before_after(instances, instances_after)
 
