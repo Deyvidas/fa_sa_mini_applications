@@ -50,21 +50,21 @@ def add_statuses(
         statuses_data: list[StatusCreate],
         session: Session = Depends(activate_session),
 ):
-    kwargs_list = [status.model_dump() for status in statuses_data]
-    statement = manager.bulk_create(kwargs_list)
     try:
+        kwargs_list = [status.model_dump() for status in statuses_data]
+        statement = manager.bulk_create(kwargs_list)
         instances: Sequence[Status] = session.scalars(statement).unique().all()
         session.commit()
         return [instance.to_dto_model(StatusRetrieve) for instance in instances]
+
     except IntegrityError as error:
         session.rollback()
         if 'status' not in error._message():
             raise
-        kwargs = manager.parse_integrity_error(error)
         BaseExceptionRaiser(
             model=Status,
             error_type=ErrorType.UNIQUE_VIOLATION_400,
-            kwargs=kwargs,
+            kwargs=manager.parse_integrity_error(error),
         ).raise_exception()
 
 
@@ -80,16 +80,21 @@ def add_status(
         status_data: StatusCreate,
         session: Session = Depends(activate_session),
 ):
-    statement = manager.create(**status_data.model_dump())
     try:
-        instance: Status = session.scalar(statement)
-        session.commit()
-        return instance.to_dto_model(StatusRetrieve)
-    except IntegrityError:
+        statement = manager.create(**status_data.model_dump())
+        instance = session.scalar(statement)
+        if isinstance(instance, Status):
+            session.commit()
+            return instance.to_dto_model(StatusRetrieve)
+
+    except IntegrityError as error:
+        session.rollback()
+        if 'status' not in error._message():
+            raise
         BaseExceptionRaiser(
             model=Status,
             error_type=ErrorType.UNIQUE_VIOLATION_400,
-            kwargs=dict(status=status_data.status),
+            kwargs=manager.parse_integrity_error(error),
         ).raise_exception()
 
 
@@ -106,10 +111,10 @@ def get_status_with_status_number(
         session: Session = Depends(activate_session),
 ):
     statement = manager.filter(status=status_num)
-    instance: Sequence[Status] = session.scalars(statement).unique().all()
+    instance = session.scalar(statement)
+    if isinstance(instance, Status):
+        return instance.to_dto_model(StatusRetrieve)
 
-    if len(instance) == 1:
-        return instance[0].to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
         model=Status,
         error_type=ErrorType.NOT_FOUND_404,
@@ -134,8 +139,8 @@ def full_update_status_with_status_number(
         where=dict(status=status_num),
         set_value=new_data.model_dump(),
     )
-    instance: Status = session.scalar(statement)
-    if instance is not None:
+    instance = session.scalar(statement)
+    if isinstance(instance, Status):
         session.commit()
         return instance.to_dto_model(StatusRetrieve)
     BaseExceptionRaiser(
@@ -159,29 +164,30 @@ def partial_update_status_with_status_number(
         new_data: StatusPartialUpdate,
         session: Session = Depends(activate_session),
 ):
-    data = new_data.model_dump(exclude_none=True)
+    try:
+        statement = manager.update(
+            where=dict(status=status_num),
+            set_value=new_data.model_dump(exclude_none=True),
+        )
+        instance = session.scalar(statement)
+        if isinstance(instance, Status):
+            session.commit()
+            return instance.to_dto_model(StatusRetrieve)
 
-    if len(data) == 0:
+        BaseExceptionRaiser(
+            model=Status,
+            error_type=ErrorType.NOT_FOUND_404,
+            kwargs=dict(status=status_num),
+        ).raise_exception()
+
+    except ValueError as error:
+        if not str(error).startswith('Without new values, updating can\'t proceed'):
+            raise
         BaseExceptionRaiser(
             model=Status,
             error_type=ErrorType.EMPTY_BODY_ON_PATCH_400,
             kwargs=dict(status=status_num),
         ).raise_exception()
-
-    statement = manager.update(
-        where=dict(status=status_num),
-        set_value=data,
-    )
-    instance: Status = session.scalar(statement)
-    if instance is not None:
-        session.commit()
-        return instance.to_dto_model(StatusRetrieve)
-
-    BaseExceptionRaiser(
-        model=Status,
-        error_type=ErrorType.NOT_FOUND_404,
-        kwargs=dict(status=status_num),
-    ).raise_exception()
 
 
 @router.delete(
@@ -198,10 +204,10 @@ def delete_status_with_status_number(
 ):
     statement = manager.delete(status=status_num)
     instance = session.scalar(statement)
-    session.commit()
-
-    if instance is not None:
+    if isinstance(instance, Status):
+        session.commit()
         return instance.to_dto_model(StatusRetrieve)
+
     BaseExceptionRaiser(
         model=Status,
         error_type=ErrorType.NOT_FOUND_404,

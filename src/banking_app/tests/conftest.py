@@ -79,7 +79,6 @@ def create_and_drop_tables(session: Session):
 
     try:
         engine.echo = False
-        drop_tables(engine, session)
         create_tables(engine, session)
         engine.echo = test_settings.ENGINE_ECHO
         yield
@@ -112,9 +111,10 @@ def drop_db(engine: Engine) -> None:
 def create_tables(engine: Engine, session: Session) -> None:
     """Create all registered into Base.metadata tables."""
 
-    session.commit()
+    drop_tables(engine, session)
     Base.metadata.create_all(engine)
     session.commit()
+
     message = '\n{:*^79}'.format(' Base.metadata.create_all() OK! ')
     engine.logger.info(message)
 
@@ -122,8 +122,9 @@ def create_tables(engine: Engine, session: Session) -> None:
 def drop_tables(engine: Engine, session: Session) -> None:
     """Drop all registered into Base.metadata tables."""
 
-    session.commit()
+    session.rollback()
     Base.metadata.drop_all(engine)
     session.commit()
+
     message = '\n{:*^79}'.format(' Base.metadata.drop_all() OK! ')
     engine.logger.info(message)

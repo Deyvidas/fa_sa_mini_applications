@@ -37,35 +37,14 @@ class BaseTestStatus:
 
     def get_unexistent_status_num(self, objects: Sequence[StatusData]) -> int:
         assert len(objects) > 0
-        objects = self.list_of_dict_to_orm(objects)
+        if isinstance(objects[0], dict):
+            objects = [Status(**kwargs) for kwargs in objects]                  # type: ignore
+
         existent_statuses = [getattr(o, 'status') for o in objects]
         while True:
             num = randint(10 ** 5, 10 ** 6 - 1)  # [100_000; 999_999]
             if num not in existent_statuses:
                 return num
-
-    def compare_list_before_after[T: StatusData, S: Sequence[str]](
-            self,
-            before: Sequence[T],
-            after: Sequence[T],
-            *,
-            exclude: S | None = None,
-            fields: S | None = None,
-    ):
-        assert len(before) == len(after)
-        before = self.list_of_dict_to_orm(before)
-        after = self.list_of_dict_to_orm(after)
-
-        # By default we sort by status, but it can be excluded, than take first field.
-        fields = self._get_final_field_set(exclude, fields)
-        ord_by = 'status'
-        if ord_by not in fields:
-            ord_by = fields[0]
-
-        before_ord = sorted(before, key=lambda b: getattr(b, ord_by))
-        after_ord = sorted(after, key=lambda a: getattr(a, ord_by))
-        for b, a in zip(before_ord, after_ord):
-            self.compare_obj_before_after(b, a, exclude=exclude, fields=fields)
 
     def compare_obj_before_after[T: StatusData, S: Sequence[str]](
             self,
@@ -75,18 +54,42 @@ class BaseTestStatus:
             exclude: S | None = None,
             fields: S | None = None,
     ):
-        before = self.list_of_dict_to_orm([before])[0]
-        after = self.list_of_dict_to_orm([after])[0]
+        self.compare_list_before_after(
+            before=[before],
+            after=[after],
+            exclude=exclude,
+            fields=fields,
+        )
 
+    def compare_list_before_after[T: StatusData, S: Sequence[str]](
+            self,
+            before: Sequence[T],
+            after: Sequence[T],
+            *,
+            exclude: S | None = None,
+            fields: S | None = None,
+    ):
+        assert len(before) == len(after) and len(before) > 0
+
+        # Convert dict into an instance to use getattr.
+        if isinstance(before[0], dict):
+            before = [Status(**kwargs) for kwargs in before]                    # type: ignore
+        if isinstance(after[0], dict):
+            after = [Status(**kwargs) for kwargs in after]                      # type: ignore
+
+        # By default we sort by status, but it can be excluded.
         fields = self._get_final_field_set(exclude, fields)
-        for field in fields:
-            assert getattr(after, field) == getattr(before, field)
+        ord_by = 'status'
+        if ord_by not in fields:
+            ord_by = fields[0]
 
-    def list_of_dict_to_orm[T: Sequence[StatusData]](self, objects: T) -> T:
-        list_of_dicts = all(map(lambda o: isinstance(o, dict), objects))
-        if list_of_dicts:
-            return [Status(**object) for object in objects]                     # type: ignore
-        return objects
+        if len(before) > 1:
+            before = sorted(before, key=lambda b: getattr(b, ord_by))
+            after = sorted(after, key=lambda a: getattr(a, ord_by))
+
+        for b, a in zip(before, after):
+            for field in fields:
+                assert getattr(a, field) == getattr(b, field)
 
     def _get_final_field_set[S: Sequence[str]](
             self,

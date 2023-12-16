@@ -96,7 +96,7 @@ class UpdateManager(AlterManager):
     ) -> ReturningUpdate:
         if len(set_value) == 0:
             raise ValueError(
-                f'Updating is not possible without new values, {set_value=}.'
+                f'Without new values, updating can\'t proceed, {set_value=}.'
             )
 
         conditions = KwargsParser().parse_kwargs(
