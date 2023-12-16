@@ -1,149 +1,25 @@
 import pytest
 
 from copy import deepcopy
-
 from fastapi import status
-from fastapi.testclient import TestClient
-
-from random import randint
-
 from sqlalchemy.orm.session import Session
-
-from typing import Any
-from typing import Iterable
-from typing import Optional
 from typing import Sequence
-from typing import TypeAlias
 
-from src.banking_app.main import banking_app
-from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import StatusRetrieve
-
-
-@pytest.mark.usefixtures('create_and_drop_tables')
-class BaseTest:
-    client = TestClient(banking_app)
-    manager = StatusManager()
-
-    fields_to_retrieve = {'status', 'description'}
-    prefix = '/status'
-
-    not_found_msg = '{} with status={} not found.'
-    not_unique_msg = '{} with status={} already exists.'
-    empty_patch_body = '{} with status={} can\'t be updated, received empty body, change at least value of one field.'
-
-    StatusData: TypeAlias = Status | dict[str, Any]
-
-    def get_unexistent_status_num(
-            self,
-            statuses: Sequence[StatusData],
-    ) -> int:
-        """Return status number which not exist."""
-        assert len(statuses) > 0
-
-        existent_statuses = list()
-        for s in statuses:
-            value = s.status if isinstance(s, Status) else s['status']
-            existent_statuses.append(value)
-
-        while True:
-            num = randint(10 ** 5, 10 ** 6 - 1)
-            if num not in existent_statuses:
-                return num
-
-    def check_if_table_is_empty(self, session: Session):
-        statement = self.manager.filter()
-        instances = session.scalars(statement).unique().all()
-        assert len(instances) == 0
-
-    def compare_obj_before_after[T: StatusData](
-            self,
-            status_before: T,
-            status_after: T,
-            *,
-            fields: Optional[Iterable[str]] = None,
-            exclude: Optional[Iterable[str]] = None,
-    ) -> None:
-        statuses_before = [status_before]
-        statuses_after = [status_after]
-        self.compare_list_before_after(
-            statuses_before,
-            statuses_after,
-            fields=fields,
-            exclude=exclude,
-        )
-
-    def compare_list_before_after[T: StatusData](
-            self,
-            statuses_before: Sequence[T],
-            statuses_after: Sequence[T],
-            *,
-            fields: Optional[Iterable[str]] = None,
-            exclude: Optional[Iterable[str]] = None,
-    ) -> None:
-        assert len(statuses_before) > 0
-        assert len(statuses_before) == len(statuses_after)
-
-        if not all(map(
-            lambda s: isinstance(s, (Status, dict)),
-            [statuses_before[0], statuses_after[0]]
-        )):
-            raise TypeError
-
-        fields = deepcopy(self.fields_to_retrieve)
-        if fields is not None:
-            fields = set(fields)
-        if exclude is not None:
-            fields = fields - set(exclude)
-
-        # By default we sort by status, but it can be excluded, than take first field.
-        sort_by = 'status'
-        if sort_by not in fields:
-            for field in fields:
-                sort_by = field
-                break
-
-        statuses_before = self._sort_statuses(statuses_before, sort_by=sort_by)
-        statuses_after = self._sort_statuses(statuses_after, sort_by=sort_by)
-
-        for before, after in zip(statuses_before, statuses_after):
-            for field in fields:
-                if isinstance(after, Status):
-                    after_value = getattr(after, field)
-                else:
-                    after_value = after[field]
-                if isinstance(before, Status):
-                    before_value = getattr(before, field)
-                else:
-                    before_value = before[field]
-
-                assert after_value == before_value
-
-    def _sort_statuses[T: StatusData](
-            self,
-            statuses: Sequence[T],
-            *,
-            sort_by: str = 'status',
-            descending: bool = False,
-    ) -> Sequence[T]:
-
-        key = lambda s: s[sort_by]
-        if isinstance(statuses[0], Status):
-            key = lambda s: getattr(s, sort_by)
-        return sorted(statuses, key=key, reverse=descending)
+from src.banking_app.tests.test_status.conftest import BaseTestStatus as BaseTest
 
 
 @pytest.mark.run(order=2.00_00)
 class TestRetrieve(BaseTest):
 
-    def test_get_all_statuses(self, created_statuses: list[Status]):
+    def test_get_all_statuses(self, statuses_orm: list[Status]):
         response = self.client.get(f'{self.prefix}/list')
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
         assert body is not None and isinstance(body, list)
-        assert len(body) == len(created_statuses)
+        assert len(body) == len(statuses_orm)
 
     @pytest.mark.parametrize(
         argnames='status_code',
@@ -154,12 +30,12 @@ class TestRetrieve(BaseTest):
     )
     def test_get_status_with_number(
             self,
-            created_statuses: list[Status],
+            statuses_orm: list[Status],
             status_code: int,
     ):
         # Test case when user try to get status with unexistent status number.
         if status_code == status.HTTP_404_NOT_FOUND:
-            unexist_status = self.get_unexistent_status_num(created_statuses)
+            unexist_status = self.get_unexistent_status_num(statuses_orm)
             response = self.client.get(f'{self.prefix}/{unexist_status}')
             assert response.status_code == status_code
 
@@ -167,13 +43,13 @@ class TestRetrieve(BaseTest):
             assert response.json() == {'detail': msg}
             return
 
-        for status_db in created_statuses:
+        for status_db in statuses_orm:
             response = self.client.get(f'{self.prefix}/{status_db.status}')
             assert response.status_code == status_code
 
             body = response.json()
             assert body is not None and isinstance(body, dict)
-            assert set(body.keys()) == self.fields_to_retrieve
+            assert set(body.keys()) == set(self.fields)
             self.compare_obj_before_after(status_db, body)
 
 
@@ -181,7 +57,9 @@ class TestRetrieve(BaseTest):
 class TestPost(BaseTest):
 
     def test_add_status(self, session: Session):
-        self.check_if_table_is_empty(session)
+        statement = self.manager.filter()
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) == 0
 
         # Make POST query.
         new_status = dict(status=1000, description='Test status number 1000.')
@@ -191,7 +69,7 @@ class TestPost(BaseTest):
         # Expect than posted status was returned.
         body = response.json()
         assert body is not None and isinstance(body, dict)
-        assert set(body.keys()) == self.fields_to_retrieve
+        assert set(body.keys()) == set(self.fields)
         self.compare_obj_before_after(new_status, body)
 
         # Check if posted status is saved into DB.
@@ -215,13 +93,15 @@ class TestPost(BaseTest):
     def test_add_statuses(
             self,
             session: Session,
-            statuses: list[StatusRetrieve],
+            statuses_dto: list[StatusRetrieve],
     ):
         url = f'{self.prefix}/list'
-        self.check_if_table_is_empty(session)
+        statement = self.manager.filter()
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) == 0
 
         # Make POST query.
-        statuses_data = [status.model_dump() for status in statuses]
+        statuses_data = [status.model_dump() for status in statuses_dto]
         response = self.client.post(url, json=statuses_data)
         assert response.status_code == status.HTTP_201_CREATED
 
@@ -231,7 +111,7 @@ class TestPost(BaseTest):
         assert len(body) == len(statuses_data)
         for data in body:
             assert isinstance(data, dict)
-            assert (data.keys()) == self.fields_to_retrieve
+            assert (data.keys()) == set(self.fields)
         self.compare_list_before_after(statuses_data, body)
 
         # Check if the posted statuses are saved in the DB.
@@ -282,7 +162,7 @@ class TestUpdate(BaseTest):
             self,
             method: str,
             session: Session,
-            created_statuses: list[Status],
+            statuses_orm: list[Status],
     ):
         functions = {
             'PUT': self.client.put,
@@ -292,7 +172,7 @@ class TestUpdate(BaseTest):
         if query_function is None:
             assert False, f'Method `{method}` is not provided for this test.'
 
-        to_update = created_statuses[-1]
+        to_update = statuses_orm[-1]
         upd_status_num = to_update.status
         url = f'{self.prefix}/{upd_status_num}'
         new_field_values = dict(description=f'New description for {method}.')
@@ -304,7 +184,7 @@ class TestUpdate(BaseTest):
         # Check than updated object is returned.
         body = response.json()
         assert body is not None and isinstance(body, dict)
-        assert set(body.keys()) == self.fields_to_retrieve
+        assert set(body.keys()) == set(self.fields)
         assert body['status'] == upd_status_num
         self.compare_obj_before_after(
             new_field_values,
@@ -324,10 +204,10 @@ class TestUpdate(BaseTest):
         )
 
         # Make deepcopy of objects to compare than after, to prevent changing in list after commit.
-        statuses_before = deepcopy(created_statuses)
+        statuses_before = deepcopy(statuses_orm)
 
         # Then I try to update unexistent status.
-        unexist_status = self.get_unexistent_status_num(created_statuses)
+        unexist_status = self.get_unexistent_status_num(statuses_orm)
         url = f'{self.prefix}/{unexist_status}'
         response = query_function(url, json=new_field_values)
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -347,10 +227,10 @@ class TestUpdate(BaseTest):
     def test_partial_update_status_with_empty_body(
             self,
             session: Session,
-            created_statuses: list[Status],
+            statuses_orm: list[Status],
     ):
-        statuses_before = deepcopy(created_statuses)
-        to_update = created_statuses[-1]
+        statuses_before = deepcopy(statuses_orm)
+        to_update = statuses_orm[-1]
         upd_status_num = to_update.status
         url = f'{self.prefix}/{upd_status_num}'
 
@@ -377,10 +257,10 @@ class TestDelete(BaseTest):
     def test_delete_status_with_status_number(
             self,
             session: Session,
-            created_statuses: list[Status],
+            statuses_orm: list[Status],
     ):
-        count = len(created_statuses)
-        status_to_delete = created_statuses[-1]
+        count = len(statuses_orm)
+        status_to_delete = statuses_orm[-1]
         del_status_num = status_to_delete.status
         url = f'{self.prefix}/{del_status_num}'
 
@@ -391,7 +271,7 @@ class TestDelete(BaseTest):
         # Expect than deleted status was returned.
         body = response.json()
         assert body is not None and isinstance(body, dict)
-        assert set(body.keys()) == self.fields_to_retrieve
+        assert set(body.keys()) == set(self.fields)
         assert body['status'] == del_status_num
         self.compare_obj_before_after(
             status_to_delete,

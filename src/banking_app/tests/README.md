@@ -19,7 +19,10 @@
     - `0.01_09 tests/test_client/test_schemas.py::TestSideModels`
 
 - `1.XX_XX` Testing managers:
-    - `1.00_00 tests/test_status/test_managers.py::TestManager`
+    - `1.00_00 tests/test_status/test_managers.py::TestCreate`
+    - `1.00_01 tests/test_status/test_managers.py::TestBulkCreate`
+    - `1.00_02 tests/test_status/test_managers.py::TestFilter`
+    - `1.00_03 tests/test_status/test_managers.py::TestUpdate`
 
 - `2.XX_XX` Testing endpoints:
     - `2.00_00 tests/test_status/test_endpoints.py::TestRetrieve`

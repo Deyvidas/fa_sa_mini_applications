@@ -1,170 +1,214 @@
 import pytest
 
-from typing import Any
-from typing import Sequence
+from copy import deepcopy
+from random import choice
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.expression import select
 
-from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.tests.test_status.conftest import BaseTestStatus
 
 
 @pytest.mark.run(order=1.00_00)
-@pytest.mark.usefixtures('create_and_drop_tables')
-class TestManager:
-    manager = StatusManager()
-    model = Status
+class TestCreate(BaseTestStatus):
 
-    def test_create(
+    def test_base(
             self,
             session: Session,
-            statuses: list[StatusRetrieve],
+            statuses_dto: list[StatusRetrieve],
     ):
-        status = statuses[0]
+        status_dto = choice(statuses_dto)
 
-        create_stmt = self.manager.create(**status.model_dump())
-        instance = session.scalar(create_stmt)
+        # Test that create returns the created instance.
+        statement = self.manager.create(**status_dto.model_dump())
+        instances = session.scalars(statement).unique().all()
         session.commit()
+        assert len(instances) == 1
+        self.compare_obj_before_after(status_dto, instances[0])
 
+        # Check that the object has been created in the DB.
+        statement = select(self.model)
+        instances_after = session.scalars(statement).unique().all()
+        assert len(instances_after) == 1
+        self.compare_obj_before_after(instances[0], instances_after[0])
+
+    def test_not_unique(
+            self,
+            session: Session,
+            statuses_dto: list[StatusRetrieve],
+    ):
+        status_dto = choice(statuses_dto)
+
+        # Create instance of status in DB.
+        statement = self.manager.create(**status_dto.model_dump())
+        instance = session.scalar(statement)
+        session.commit()
         assert isinstance(instance, Status)
-        assert instance.status == status.status
-        assert instance.description == status.description
 
-    def test_bulk_create(
+        # Try to create another status object with same fields values.
+        statement = self.manager.create(**status_dto.model_dump())
+        with pytest.raises(IntegrityError) as error:
+            session.scalar(statement)
+        kwargs = self.manager.parse_integrity_error(error.value)
+        assert kwargs == {'status': status_dto.status}
+
+        # Check that there are no changes in the DB.
+        session.rollback()
+        statement = select(self.model)
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) == 1
+        self.compare_obj_before_after(instance, instances[0])
+
+
+@pytest.mark.run(order=1.00_01)
+class TestBulkCreate(BaseTestStatus):
+
+    def test_base(
             self,
             session: Session,
-            statuses: list[StatusRetrieve],
+            statuses_dto: list[StatusRetrieve],
     ):
-        list_kwargs = [status.model_dump() for status in statuses]
-        bulk_create_stmt = self.manager.bulk_create(list_kwargs)
-        instances: Sequence[Status] = session.scalars(bulk_create_stmt).unique().all()
+        list_kwargs = [s.model_dump() for s in statuses_dto]
+
+        # Test if bulk_create returns a list of created instances.
+        statement = self.manager.bulk_create(list_kwargs)
+        instances = session.scalars(statement).unique().all()
+        session.commit()
+        assert len(instances) == len(list_kwargs)
+        self.compare_list_before_after(list_kwargs, instances)
+
+        # Check that objects have been created in the DB.
+        statement = select(self.model)
+        instances_after = session.scalars(statement).unique().all()
+        assert len(instances_after) == len(instances)
+        self.compare_list_before_after(list_kwargs, instances_after)
+
+    def test_with_some_not_unique(
+            self,
+            session: Session,
+            statuses_dto: list[StatusRetrieve]
+    ):
+        half = int(len(statuses_dto) / 2)
+
+        # Saving the first part of having statuses.
+        first_half = [s.model_dump() for s in statuses_dto[:half]]
+        statement = self.manager.bulk_create(first_half)
+        instances = session.scalars(statement).unique().all()
         session.commit()
 
-        assert len(instances) == len(statuses)
+        # Try to create new statuses that are mixed with already existing statuses.
+        second_half = [s.model_dump() for s in statuses_dto[half:]]
+        second_half += [first_half[0], first_half[-1]]
+        statement = self.manager.bulk_create(second_half)
+        with pytest.raises(IntegrityError) as error:
+            session.execute(statement)
+        kwargs = self.manager.parse_integrity_error(error.value)
+        assert kwargs == {'status': first_half[0]['status']}
 
-        instances_ord = sorted(instances, key=lambda instance: instance.status)
-        statuses_ord = sorted(statuses, key=lambda status: status.status)
+        # Check that there are no changes in the DB.
+        session.rollback()
+        statement = select(self.model)
+        instances_after = session.scalars(statement).unique().all()
+        assert len(instances_after) == len(instances)
+        self.compare_list_before_after(instances, instances_after)
 
-        for instance, status in zip(instances_ord, statuses_ord):
-            assert instance.status == status.status
-            assert instance.description == status.description
 
-    @pytest.mark.parametrize(
-        argnames='filter_kwargs,filter_expr',
-        argvalues=(
-            pytest.param(
-                dict(),
-                'lambda s: True',
-                id='filter without conditions'
-            ),
-            pytest.param(
-                dict(status=300),
-                'lambda s: s.status == 300',
-                id='filter with single base condition'
-            ),
-            pytest.param(
-                dict(status__in=(100, 400, 900)),
-                'lambda s: s.status in (100, 400, 900)',
-                id='filter with single IN condition'
-            ),
-            pytest.param(
-                dict(status__between=(200, 400)),
-                'lambda s: s.status in range(200, 401)',
-                id='filter with single BETWEEN condition'
-            ),
-            pytest.param(
-                dict(
-                    status=300,
-                    description='Test description 300',
-                ),
-                (
-                    'lambda s: s.status == 300 and '
-                    's.description == "Test description 300"'
-                ),
-                id='filter with multi base conditions'
-            ),
-            pytest.param(
-                dict(
-                    status__in=(100, 400, 900),
-                    description__in=('Test description 400', 'Test description 900'),
-                ),
-                (
-                    'lambda s: s.status in (100, 400, 900) and '
-                    's.description in ("Test description 400","Test description 900")'
-                ),
-                id='filter with multi IN conditions'
-            ),
-        ),
-    )
-    def test_filter(
+@pytest.mark.run(order=1.00_02)
+class TestFilter(BaseTestStatus):
+
+    def test_without_arguments(
             self,
             session: Session,
-            created_statuses: list[Status],
-            filter_kwargs: dict[str, Any],
-            filter_expr: str,
+            statuses_orm: list[Status],
     ):
-        statement = self.manager.filter(**filter_kwargs)
-        instances: Sequence[Status] = session.scalars(statement).unique().all()
-        estimated_list = list(filter(eval(filter_expr), created_statuses))
+        # Check that filtering without parameters returns all objects from the DB.
+        statement = self.manager.filter()
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) == len(statuses_orm)
+        self.compare_list_before_after(statuses_orm, instances)
 
-        assert len(instances) == len(estimated_list)
-
-        instances = sorted(instances, key=lambda s: s.status)
-        estimated_list = sorted(estimated_list, key=lambda s: s.status)
-
-        for instance, estimated in zip(instances, estimated_list):
-            assert instance.status == estimated.status
-            assert instance.description == estimated.description
-
-    @pytest.mark.parametrize(
-        argnames='condition,values',
-        argvalues=(
-            pytest.param(
-                dict(status=300),
-                dict(description='New description.'),
-                id='update single object'
-            ),
-            pytest.param(
-                dict(status__between=(200, 500)),
-                dict(description='New description.'),
-                id='update multiple object'
-            ),
-            pytest.param(
-                dict(status__between=(200, 500)),
-                dict(),
-                id='update with empty body'
-            ),
-        ),
-    )
-    def test_update(
+    def test_by_status_number(
             self,
             session: Session,
-            created_statuses: list[Status],
-            condition: dict[str, Any],
-            values: dict[str, Any],
+            statuses_orm: list[Status]
     ):
-        # Case when passed empty dict in values.
-        if len(values) == 0:
-            with pytest.raises(ValueError) as error:
-                self.manager.update(where=condition, set_value=values)
-            assert str(error.value) == 'Updating is not possible without new values, set_value={}.'
-            return
+        # Filtering by existent status number.
+        existent_status = choice(statuses_orm)
+        statement = self.manager.filter(status=existent_status.status)
+        instance = session.scalar(statement)
+        assert isinstance(instance, Status)
+        self.compare_obj_before_after(existent_status, instance)
 
-        # Count amount of statuses which must be updated.
-        statement = self.manager.update(where=condition, set_value=values)
-        count_stmt = self.manager.filter(**condition)
-        count = len(session.scalars(count_stmt).unique().all())
+        # Filtering by unexistent status number.
+        unexist_status = self.get_unexistent_status_num(statuses_orm)
+        statement = self.manager.filter(status=unexist_status)
+        instance = session.scalar(statement)
+        assert instance is None
 
-        # Updating statuses.
-        updated: Sequence[Status] = session.scalars(statement).unique().all()
+
+@pytest.mark.run(order=1.00_03)
+class TestUpdate(BaseTestStatus):
+
+    def test_update_single_status_with_status_num(
+            self,
+            session: Session,
+            statuses_orm: list[Status],
+    ):
+        status_to_update = choice(statuses_orm)
+
+        # Update must change single status and return it with updated field values.
+        new_description = status_to_update.description + '(updated)'
+        statement = self.manager.update(
+            where=dict(status=status_to_update.status),
+            set_value=dict(description=new_description),
+        )
+        instances = session.scalars(statement).unique().all()
         session.commit()
-        assert len(updated) == count
+        assert len(instances) == 1
 
-        # Make sure than objects are updated in DB.
-        updated_statuses = [u.status for u in updated]
-        statement = self.manager.filter(**dict(status__in=updated_statuses))
-        updated = session.scalars(statement).unique().all()
-        for field, new_value in values.items():
-            for status in updated:
-                assert getattr(status, field) == new_value
+        # Check the new value of description field.
+        instance = instances[0]
+        assert isinstance(instance, Status)
+        assert instance.description == new_description
+        self.compare_obj_before_after(
+            status_to_update,
+            instance,
+            exclude=['description'],
+        )
+
+        # Ensure that the object has new values in the DB.
+        statement = self.manager.filter(status=instance.status)
+        instance_after = session.scalars(statement).unique().all()
+        assert len(instance_after) == 1 and isinstance(instance_after[0], Status)
+        assert instance_after[0].description == new_description
+        self.compare_obj_before_after(
+            status_to_update,
+            instance_after[0],
+            exclude=['description'],
+        )
+
+    def test_update_unexistent_status(
+            self,
+            session: Session,
+            statuses_orm: list[Status],
+    ):
+        statuses_before = deepcopy(statuses_orm)
+
+        # Make an attempt to update the status with an unexistent status_num.
+        unexist_status_num = self.get_unexistent_status_num(statuses_orm)
+        statement = self.manager.update(
+            where=dict(status=unexist_status_num),
+            set_value=dict(description='Description for unexistent status.'),
+        )
+        instances = session.scalars(statement).unique().all()
+        session.commit()
+        assert len(instances) == 0
+
+        # Ensure that the objects in the DB not been changed.
+        statement = self.manager.filter()
+        statuses_after = session.scalars(statement).unique().all()
+        assert len(statuses_after) == len(statuses_before)
+        self.compare_list_before_after(statuses_before, statuses_after)
