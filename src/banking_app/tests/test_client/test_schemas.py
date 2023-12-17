@@ -20,8 +20,8 @@ from src.banking_app.types.client import SexEnum
 
 
 @pytest.fixture
-def data_client(clients_dto):
-    random_client = choice(clients_dto).model_dump()
+def data_client(clients_dto_simple):
+    random_client = choice(clients_dto_simple).model_dump()
     random_client['client_status'] = StatusRetrieve(**random_client['client_status'])
     return random_client
 

@@ -13,7 +13,7 @@ from src.banking_app.main import banking_app
 from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import BaseStatusModel
-from src.banking_app.tests.conftest import BaseTest
+from src.banking_app.tests.helpers import BaseTest
 from src.banking_app.tests.test_status.factory import factory_statuses_dto
 
 
