@@ -1,33 +1,27 @@
 import pytest
 
-from datetime import timedelta
-from typing import Any
+from copy import deepcopy
+from fastapi.testclient import TestClient
+from typing import Sequence
 
-from src.banking_app.conf import test_settings
-from src.banking_app.schemas.status import StatusRetrieve
-from src.banking_app.types.client import SexEnum
+from src.banking_app.main import banking_app
+from src.banking_app.managers.client import ClientManager
+from src.banking_app.models.client import Client
+from src.banking_app.schemas.client import BaseClientModel
+from src.banking_app.tests.conftest import BaseTest
+from src.banking_app.tests.test_client.factory import factory_clients_dto
 
 
-dates = dict(
-    birth_date=test_settings.get_date_today() - timedelta(days=360),
-    reg_date=test_settings.get_date_today(),
-)
+@pytest.mark.usefixtures('create_and_drop_tables')
+class BaseTestClient(BaseTest):
+    client = TestClient(banking_app)
+    manager = ClientManager()
+    model_dto = BaseClientModel
+    model_orm = Client
+    ord_by_default = 'client_id'
+    prefix = '/clients'
 
 
 @pytest.fixture
-def data_client(data_status) -> dict[str, Any]:
-    """Fixture used into test_schemas."""
-    status = StatusRetrieve(**data_status)
-    data = dict(
-        client_id=24,
-        full_name="Zimin Denis Dmitrievich",
-        birth_date=dates['birth_date'],
-        sex=SexEnum.MALE,
-        phone="9272554839",
-        doc_num="92 31",
-        doc_series="865734",
-        reg_date=dates['reg_date'],
-        VIP_flag=False,
-        status=status,
-    )
-    return data
+def clients_dto() -> Sequence[BaseClientModel]:
+    return deepcopy(factory_clients_dto)

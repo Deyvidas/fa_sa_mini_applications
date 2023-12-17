@@ -1,14 +1,20 @@
 import pytest
 
 from copy import deepcopy
-
 from pydantic import ValidationError
+from random import choice
+from typing import Sequence
 
 from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.schemas.status import StatusCreate
 from src.banking_app.schemas.status import StatusFullUpdate
 from src.banking_app.schemas.status import StatusPartialUpdate
 from src.banking_app.schemas.status import StatusRetrieve
+
+
+@pytest.fixture
+def data_status(statuses_dto: Sequence[BaseStatusModel]):
+    return choice(statuses_dto).model_dump()
 
 
 @pytest.mark.run(order=0.00_00)

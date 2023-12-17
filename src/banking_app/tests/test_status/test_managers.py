@@ -7,6 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import select
 
+from typing import Sequence
+
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.tests.test_status.conftest import BaseTestStatus
@@ -18,7 +20,7 @@ class TestCreate(BaseTestStatus):
     def test_base(
             self,
             session: Session,
-            statuses_dto: list[BaseStatusModel],
+            statuses_dto: Sequence[BaseStatusModel],
     ):
         status_dto = choice(statuses_dto)
 
@@ -38,7 +40,7 @@ class TestCreate(BaseTestStatus):
     def test_not_unique(
             self,
             session: Session,
-            statuses_dto: list[BaseStatusModel],
+            statuses_dto: Sequence[BaseStatusModel],
     ):
         status_dto = choice(statuses_dto)
 
@@ -69,7 +71,7 @@ class TestBulkCreate(BaseTestStatus):
     def test_base(
             self,
             session: Session,
-            statuses_dto: list[BaseStatusModel],
+            statuses_dto: Sequence[BaseStatusModel],
     ):
         list_kwargs = [s.model_dump() for s in statuses_dto]
 
@@ -87,7 +89,7 @@ class TestBulkCreate(BaseTestStatus):
     def test_with_some_not_unique(
             self,
             session: Session,
-            statuses_dto: list[BaseStatusModel]
+            statuses_dto: Sequence[BaseStatusModel]
     ):
         half = int(len(statuses_dto) / 2)
 

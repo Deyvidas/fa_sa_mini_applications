@@ -1,5 +1,6 @@
 import pytest
 
+from copy import deepcopy
 from fastapi.testclient import TestClient
 from random import randint
 from sqlalchemy.orm.session import Session
@@ -13,6 +14,7 @@ from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.tests.conftest import BaseTest
+from src.banking_app.tests.test_status.factory import factory_statuses_dto
 
 
 StatusData: TypeAlias = Status | BaseStatusModel | dict[str, Any]
@@ -40,24 +42,15 @@ class BaseTestStatus(BaseTest):
                 return num
 
 
-@pytest.fixture()
-def data_status() -> dict[str, Any]:
-    """Fixture used into test_schemas."""
-    random_status = generate_random_status(randint(1, 10 ** 9 - 1))
-    return random_status.model_dump()
-
-
 @pytest.fixture
 def statuses_dto() -> Sequence[BaseStatusModel]:
-    first = 100
-    last = 900
-    return [generate_random_status(i) for i in range(first, last + 1, 100)]
+    return deepcopy(factory_statuses_dto)
 
 
 @pytest.fixture
 def statuses_orm(
         session: Session,
-        statuses_dto: list[BaseStatusModel],
+        statuses_dto: Sequence[BaseStatusModel],
 ) -> Sequence[Status]:
     list_kwargs = [status.model_dump() for status in statuses_dto]
     statement = manager.bulk_create(list_kwargs)
@@ -66,10 +59,3 @@ def statuses_orm(
 
     assert len(instances) == len(statuses_dto)
     return instances
-
-
-def generate_random_status(status_num: int = 100) -> BaseStatusModel:
-    return BaseStatusModel(
-        status=status_num,
-        description=f'Test description {status_num}',
-    )

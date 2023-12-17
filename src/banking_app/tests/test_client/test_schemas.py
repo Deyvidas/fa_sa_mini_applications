@@ -4,7 +4,9 @@ from copy import deepcopy
 
 from datetime import timedelta
 
+from random import choice
 from random import randint
+
 from pydantic import ValidationError
 
 from src.banking_app.conf import test_settings
@@ -13,8 +15,15 @@ from src.banking_app.schemas.client import ClientCreate
 from src.banking_app.schemas.client import ClientFullUpdate
 from src.banking_app.schemas.client import ClientPartialUpdate
 from src.banking_app.schemas.client import ClientRetrieve
+from src.banking_app.schemas.status import StatusRetrieve
 from src.banking_app.types.client import SexEnum
-from src.banking_app.tests.test_client.conftest import dates
+
+
+@pytest.fixture
+def data_client(clients_dto):
+    random_client = choice(clients_dto).model_dump()
+    random_client['client_status'] = StatusRetrieve(**random_client['client_status'])
+    return random_client
 
 
 @pytest.mark.run(order=0.01_00)
@@ -150,26 +159,26 @@ class TestBirthDateField:
         argnames='raw_value,clean_value',
         argvalues=(
             pytest.param(
-                dates['reg_date'],
-                dates['reg_date'],
+                'data_client[\'reg_date\']',
+                'data_client[\'reg_date\']',
                 id='birth_date == reg_date'
             ),
             pytest.param(
-                dates['reg_date'] - timedelta(days=1),
-                dates['reg_date'] - timedelta(days=1),
+                'data_client[\'reg_date\'] - timedelta(days=1)',
+                'data_client[\'reg_date\'] - timedelta(days=1)',
                 id='birth_date < reg_date'
             ),
             pytest.param(
-                str(dates['birth_date']),
-                dates['birth_date'],
+                'str(data_client[\'birth_date\'])',
+                'data_client[\'birth_date\']',
                 id='date as string'
             ),
         ),
     )
     def test_valid_values(self, freezer, data_client, raw_value, clean_value):
-        data_client['birth_date'] = raw_value
+        data_client['birth_date'] = eval(raw_value)
         obj = BaseClientModel(**data_client)
-        assert obj.birth_date == clean_value
+        assert str(obj.birth_date) == str(eval(clean_value))
 
     def test_cant_be_in_future(self, freezer, data_client):
         data_client['birth_date'] = test_settings.get_date_today() + timedelta(days=1)
@@ -195,13 +204,13 @@ class TestBirthDateField:
     @pytest.mark.parametrize(
         argnames='value',
         argvalues=(
-            pytest.param(False, id='birth_date=False'),
-            pytest.param([dates['birth_date']], id='birth_date=[date]'),
-            pytest.param(None, id='birth_date=None'),
+            pytest.param('False', id='birth_date=False'),
+            pytest.param('[data_client[\'birth_date\']]', id='birth_date=[date]'),
+            pytest.param('None', id='birth_date=None'),
         ),
     )
     def test_must_be_only_date_or_compatible_to_date_string(self, data_client, value):
-        data_client['birth_date'] = value
+        data_client['birth_date'] = eval(value)
         with pytest.raises(ValidationError) as error:
             BaseClientModel(**data_client)
         errors = error.value.errors()
@@ -448,26 +457,26 @@ class TestRegDateField:
         argnames='raw_value, clean_value',
         argvalues=(
             pytest.param(
-                dates['birth_date'],
-                dates['birth_date'],
+                'data_client[\'birth_date\']',
+                'data_client[\'birth_date\']',
                 id='reg_date == birth_date'
             ),
             pytest.param(
-                dates['birth_date'] + timedelta(days=1),
-                dates['birth_date'] + timedelta(days=1),
+                'data_client[\'birth_date\'] + timedelta(days=1)',
+                'data_client[\'birth_date\'] + timedelta(days=1)',
                 id='reg_date > birth_date'
             ),
             pytest.param(
-                str(dates['birth_date']),
-                dates['birth_date'],
+                'str(data_client[\'birth_date\'])',
+                'data_client[\'birth_date\']',
                 id='reg_date=str(date.today())'
             ),
         ),
     )
     def test_valid_values(self, freezer, data_client, raw_value, clean_value):
-        data_client['reg_date'] = raw_value
+        data_client['reg_date'] = eval(raw_value)
         obj = BaseClientModel(**data_client)
-        assert obj.reg_date == clean_value
+        assert str(obj.reg_date) == str(eval(clean_value))
 
     def test_cant_be_in_future(self, freezer, data_client):
         data_client['reg_date'] = test_settings.get_date_today() + timedelta(days=1)
@@ -493,13 +502,13 @@ class TestRegDateField:
     @pytest.mark.parametrize(
         argnames='value',
         argvalues=(
-            pytest.param(False, id='reg_date=False'),
-            pytest.param([dates['reg_date']], id='reg_date=[date]'),
-            pytest.param(None, id='reg_date=None'),
+            pytest.param('False', id='reg_date=False'),
+            pytest.param('[data_client[\'reg_date\']]', id='reg_date=[date]'),
+            pytest.param('None', id='reg_date=None'),
         ),
     )
     def test_must_be_only_date_or_compatible_to_date_string(self, data_client, value):
-        data_client['reg_date'] = value
+        data_client['reg_date'] = eval(value)
         with pytest.raises(ValidationError) as error:
             BaseClientModel(**data_client)
         errors = error.value.errors()
@@ -570,9 +579,11 @@ class TestSideModels:
                     doc_series='Field required',
                     reg_date='Field required',
                     VIP_flag='Field required',
-                    status='Field required',
+                    client_status='Field required',
                 ),
-                dict(),
+                dict(
+                    status=None,
+                ),
                 id='ClientRetrieve'
             ),
             pytest.param(
@@ -590,6 +601,7 @@ class TestSideModels:
                     reg_date=None,
                     VIP_flag=None,
                     status=None,
+                    client_status=None,
                 ),
                 id='ClientCreate'
             ),
@@ -602,12 +614,13 @@ class TestSideModels:
                     phone='Field required',
                     doc_num='Field required',
                     doc_series='Field required',
+                    status='Field required',
                 ),
                 dict(
                     client_id=None,
                     reg_date=None,
                     VIP_flag=None,
-                    status=None,
+                    client_status=None,
                 ),
                 id='ClientFullUpdate'
             ),
@@ -625,6 +638,7 @@ class TestSideModels:
                     reg_date=None,
                     VIP_flag=None,
                     status=None,
+                    client_status=None,
                 ),
                 id='ClientPartialUpdate'
             ),
