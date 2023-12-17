@@ -26,16 +26,18 @@ class TestCreate(BaseTestStatus):
 
         # Test that create returns the created instance.
         statement = self.manager.create(**status_dto.model_dump())
-        instances = session.scalars(statement).unique().all()
+        instance = session.scalars(statement).unique().all()
         session.commit()
-        assert len(instances) == 1
-        self.compare_obj_before_after(status_dto, instances[0])
+        assert len(instance) == 1
+        assert isinstance(instance := instance[0], self.model_orm)
+        self.compare_obj_before_after(status_dto, instance)
 
         # Check that the object has been created in the DB.
         statement = select(self.model_orm)
-        instances_after = session.scalars(statement).unique().all()
-        assert len(instances_after) == 1
-        self.compare_obj_before_after(instances[0], instances_after[0])
+        instance_after = session.scalars(statement).unique().all()
+        assert len(instance_after) == 1
+        assert isinstance(instance_after := instance_after[0], self.model_orm)
+        self.compare_obj_before_after(instance, instance_after)
 
     def test_not_unique(
             self,
