@@ -55,3 +55,7 @@ factory_clients_dto: Sequence[BaseClientModel] = ClientFactory().batch(
     ClientFactoryHelper.AMOUNT,
     factory_use_construct=True,
 )
+assert len(factory_statuses_dto) >= 4, (
+    'Ensure that the factory generates at least 4 clients. It\'s required for'
+    ' TestBulkCreate::test_with_some_not_unique.'
+)

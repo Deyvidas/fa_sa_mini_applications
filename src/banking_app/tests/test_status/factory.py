@@ -5,6 +5,7 @@ from polyfactory.fields import Use
 from typing import Sequence
 
 from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.models.client import DEFAULT_CLIENT_STATUS
 
 
 class StatusFactoryHelper:
@@ -32,4 +33,11 @@ class StatusFactory(ModelFactory):
 factory_statuses_dto: Sequence[StatusRetrieve] = StatusFactory.batch(
     StatusFactoryHelper.AMOUNT,
     factory_use_construct=True,
+)
+assert len(factory_statuses_dto) >= 4, (
+    'Ensure that the factory generates at least 4 statuses. It\'s required for'
+    ' TestBulkCreate::test_with_some_not_unique.'
+)
+assert any(map(lambda s: s.status == DEFAULT_CLIENT_STATUS, factory_statuses_dto)), (
+    f'Ensure that the client\'s default status ({DEFAULT_CLIENT_STATUS}) is generated.'
 )
