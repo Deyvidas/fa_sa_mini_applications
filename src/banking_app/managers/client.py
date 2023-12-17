@@ -1,7 +1,7 @@
 from sqlalchemy import Delete
 from sqlalchemy import Insert
 from sqlalchemy import Select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.dml import ReturningDelete
 from sqlalchemy.sql.dml import ReturningInsert
 
@@ -41,7 +41,7 @@ class ClientManager(BaseManager):
         if isinstance(statement, (Delete, Insert)):
             statement = (
                 statement.
-                options(selectinload(self.model.client_status))
+                options(joinedload(self.model.client_status))
             )
 
         elif isinstance(statement, Select):

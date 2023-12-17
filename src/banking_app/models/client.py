@@ -22,6 +22,9 @@ if TYPE_CHECKING:
     from src.banking_app.models.status import Status
 
 
+DEFAULT_CLIENT_STATUS = 200
+
+
 class Client(Base):
     __tablename__ = 'client'
     repr_fields = ('full_name', 'phone', 'sex')
@@ -39,7 +42,7 @@ class Client(Base):
 
     status: Mapped[int] = mapped_column(
         ForeignKey(column='status_desc.status', ondelete='CASCADE'),
-        default=200,
+        default=DEFAULT_CLIENT_STATUS,
     )
     client_status: Mapped['Status'] = relationship(
         lazy='joined',

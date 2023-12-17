@@ -6,7 +6,6 @@ from pydantic import model_validator
 from pydantic_core import PydanticCustomError
 
 from typing import Annotated
-from typing import Optional
 
 from src.banking_app.conf import settings
 from src.banking_app.schemas.base import Base
@@ -74,6 +73,15 @@ _VIP_flag = Annotated[
         examples=[False],
     )
 ]
+_status_number = Annotated[
+    int, Field(
+        gt=0,
+        examples=[100],
+    )
+]
+_status_model = Annotated[
+    StatusRetrieve, Field()
+]
 
 
 class BaseClientModel(Base):
@@ -86,7 +94,8 @@ class BaseClientModel(Base):
     doc_series: _doc_series
     reg_date: _reg_date
     VIP_flag: _VIP_flag
-    status: StatusRetrieve
+    status: _status_number
+    client_status: _status_model
 
     @field_validator('birth_date')
     @classmethod
@@ -126,21 +135,22 @@ class BaseClientModel(Base):
 
 
 class ClientRetrieve(BaseClientModel):
-    ...
+    status: _status_number = Field(default=None, exclude=True)
 
 
 class ClientCreate(BaseClientModel):
     client_id: _client_id = Field(default=None, exclude=True)
     reg_date: _reg_date = Field(default=None, exclude=True)
     VIP_flag: _VIP_flag = Field(default=None, exclude=True)
-    status: Optional[StatusRetrieve] = Field(default=None, exclude=True)
+    status: _status_number = Field(default=None, exclude=True)
+    client_status: _status_model = Field(default=None, exclude=True)
 
 
 class ClientFullUpdate(BaseClientModel):
     client_id: _client_id = Field(default=None, exclude=True)
     reg_date: _reg_date = Field(default=None, exclude=True)
     VIP_flag: _VIP_flag = Field(default=None, exclude=True)
-    status: Optional[StatusRetrieve] = Field(default=None, exclude=True)
+    client_status: _status_model = Field(default=None, exclude=True)
 
 
 class ClientPartialUpdate(BaseClientModel):
@@ -153,4 +163,5 @@ class ClientPartialUpdate(BaseClientModel):
     doc_series: _doc_series = Field(default=None)
     reg_date: _reg_date = Field(default=None, exclude=True)
     VIP_flag: _VIP_flag = Field(default=None, exclude=True)
-    status: Optional[StatusRetrieve] = Field(default=None, exclude=True)
+    status: _status_number = Field(default=None)
+    client_status: _status_model = Field(default=None, exclude=True)
