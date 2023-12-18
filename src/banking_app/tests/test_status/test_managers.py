@@ -138,8 +138,9 @@ class TestFilter(BaseTestStatus):
         # Filtering by existent status number.
         existent_status = choice(statuses_orm)
         statement = self.manager.filter(status=existent_status.status)
-        instance = session.scalar(statement)
-        assert isinstance(instance, Status)
+        instance = session.scalars(statement).unique().all()
+        assert len(instance) == 1
+        assert isinstance(instance := instance[0], Status)
         self.compare_obj_before_after(existent_status, instance)
 
         # Filtering by unexistent status number.
