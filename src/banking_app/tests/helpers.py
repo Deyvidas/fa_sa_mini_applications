@@ -1,6 +1,7 @@
 from abc import ABC
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
+from random import randint
 
 from typing import Any
 from typing import Sequence
@@ -53,6 +54,22 @@ class BaseTest(ABC):
             f'{self.model_orm.__name__} with {details} can\'t be updated,'
             ' received empty body, change at least value of one field.'
         )
+
+    def get_unexistent_numeric_value(
+            self,
+            *,
+            field: str,
+            objects: Sequence[DataType],
+    ) -> int:
+        assert len(objects) > 0
+        if all(map(lambda o: isinstance(o, dict), objects)):
+            objects = [self.model_orm(**kwargs) for kwargs in objects]          # type: ignore
+
+        existent_numbers = [getattr(o, field) for o in objects]
+        while True:
+            num = randint(10 ** 5, 10 ** 6 - 1)  # [100_000; 999_999]
+            if num not in existent_numbers:
+                return num
 
     def compare_obj_before_after[T: DataType, S: Sequence[str]](
             self,

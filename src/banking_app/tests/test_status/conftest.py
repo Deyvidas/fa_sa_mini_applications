@@ -2,7 +2,6 @@ import pytest
 
 from copy import deepcopy
 from fastapi.testclient import TestClient
-from random import randint
 from sqlalchemy.orm.session import Session
 
 from typing import Any
@@ -31,15 +30,7 @@ class BaseTestStatus(BaseTest):
     ord_by_default = 'status'
 
     def get_unexistent_status_num(self, objects: Sequence[StatusData]) -> int:
-        assert len(objects) > 0
-        if isinstance(objects[0], dict):
-            objects = [Status(**kwargs) for kwargs in objects]                  # type: ignore
-
-        existent_statuses = [getattr(o, 'status') for o in objects]
-        while True:
-            num = randint(10 ** 5, 10 ** 6 - 1)  # [100_000; 999_999]
-            if num not in existent_statuses:
-                return num
+        return super().get_unexistent_numeric_value(field='status', objects=objects)
 
 
 @pytest.fixture
