@@ -12,65 +12,18 @@ from typing import Sequence
 
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import BaseStatusModel
-from src.banking_app.tests.test_status.conftest import BaseTestStatus
+from src.banking_app.tests.general.managers import BaseTestCreate
 from src.banking_app.tests.test_status.factory import StatusFactory
+from src.banking_app.tests.test_status.helpers import StatusTestHelper
 
 
 @pytest.mark.run(order=1.00_00)
-class TestCreate(BaseTestStatus):
-
-    def test_base(
-            self,
-            session: Session,
-            statuses_dto: Sequence[BaseStatusModel],
-    ):
-        status_dto = choice(statuses_dto)
-
-        # Test that create returns the created instance.
-        statement = self.manager.create(**self.get_orm_data_from_dto(status_dto))
-        instance = session.scalars(statement).unique().all()
-        session.commit()
-        assert len(instance) == 1
-        assert isinstance(instance := instance[0], self.model_orm)
-        self.compare_obj_before_after(status_dto, instance)
-
-        # Check that the object has been created in the DB.
-        statement = select(self.model_orm)
-        instance_after = session.scalars(statement).unique().all()
-        assert len(instance_after) == 1
-        assert isinstance(instance_after := instance_after[0], self.model_orm)
-        self.compare_obj_before_after(instance, instance_after)
-
-    def test_not_unique(
-            self,
-            session: Session,
-            statuses_dto: Sequence[BaseStatusModel],
-    ):
-        status_dto = choice(statuses_dto)
-
-        # Create instance of status in DB.
-        statement = self.manager.create(**self.get_orm_data_from_dto(status_dto))
-        instance = session.scalar(statement)
-        session.commit()
-        assert isinstance(instance, self.model_orm)
-
-        # Try to create another status object with same fields values.
-        statement = self.manager.create(**self.get_orm_data_from_dto(status_dto))
-        with pytest.raises(IntegrityError) as error:
-            session.scalar(statement)
-        kwargs = self.manager.parse_integrity_error(error.value)
-        assert kwargs == {'status': status_dto.status}
-
-        # Check that there are no changes in the DB.
-        session.rollback()
-        statement = select(self.model_orm)
-        instances = session.scalars(statement).unique().all()
-        assert len(instances) == 1
-        self.compare_obj_before_after(instance, instances[0])
+class TestCreate(StatusTestHelper, BaseTestCreate):
+    ...
 
 
 @pytest.mark.run(order=1.00_01)
-class TestBulkCreate(BaseTestStatus):
+class TestBulkCreate(StatusTestHelper):
 
     def test_base(
             self,
@@ -120,7 +73,7 @@ class TestBulkCreate(BaseTestStatus):
 
 
 @pytest.mark.run(order=1.00_02)
-class TestFilter(BaseTestStatus):
+class TestFilter(StatusTestHelper):
 
     def test_without_arguments(
             self,
@@ -153,8 +106,8 @@ class TestFilter(BaseTestStatus):
 
 
 @pytest.mark.run(order=1.00_03)
-class TestUpdate(BaseTestStatus):
-    AdapterOne = TypeAdapter(BaseTestStatus.model_dto).validate_python
+class TestUpdate(StatusTestHelper):
+    AdapterOne = TypeAdapter(StatusTestHelper.model_dto).validate_python
 
     def test_update_single_status_with_status_num(
             self,
@@ -223,7 +176,7 @@ class TestUpdate(BaseTestStatus):
 
 
 @pytest.mark.run(order=1.00_04)
-class TestDelete(BaseTestStatus):
+class TestDelete(StatusTestHelper):
 
     def test_delete_status_with_status_number(
             self,

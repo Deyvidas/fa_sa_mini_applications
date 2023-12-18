@@ -8,11 +8,11 @@ from typing import Sequence
 
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import BaseStatusModel
-from src.banking_app.tests.test_status.conftest import BaseTestStatus
+from src.banking_app.tests.test_status.helpers import StatusTestHelper
 
 
 @pytest.mark.run(order=2.00_00)
-class TestRetrieve(BaseTestStatus):
+class TestRetrieve(StatusTestHelper):
 
     def test_get_all_statuses(self, statuses_orm: Sequence[Status]):
         response = self.client.get(f'{self.prefix}/list')
@@ -56,7 +56,7 @@ class TestRetrieve(BaseTestStatus):
 
 
 @pytest.mark.run(order=2.00_01)
-class TestPost(BaseTestStatus):
+class TestPost(StatusTestHelper):
 
     def test_add_status(
             self,
@@ -159,7 +159,7 @@ class TestPost(BaseTestStatus):
 
 
 @pytest.mark.run(order=2.00_02)
-class TestUpdate(BaseTestStatus):
+class TestUpdate(StatusTestHelper):
 
     @pytest.mark.parametrize(
         argnames='method',
@@ -263,7 +263,7 @@ class TestUpdate(BaseTestStatus):
 
 
 @pytest.mark.run(order=2.00_03)
-class TestDelete(BaseTestStatus):
+class TestDelete(StatusTestHelper):
 
     def test_delete_status_with_status_number(
             self,

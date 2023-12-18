@@ -12,93 +12,18 @@ from sqlalchemy.orm.session import Session
 
 from src.banking_app.models.client import Client
 from src.banking_app.schemas.client import BaseClientModel
-from src.banking_app.tests.test_client.conftest import BaseTestClient
+from src.banking_app.tests.general.managers import BaseTestCreate
+from src.banking_app.tests.test_client.conftest import ClientTestHelper
 from src.banking_app.tests.test_client.factory import ClientFactory
 
 
 @pytest.mark.run(order=1.01_00)
-class TestCreate(BaseTestClient):
-
-    def test_base(
-            self,
-            session: Session,
-            clients_dto: Sequence[BaseClientModel],
-    ):
-        client_data = self.get_orm_data_from_dto(choice(clients_dto))
-
-        # Test that create returns the created instance.
-        statement = self.manager.create(**client_data)
-        instance = session.scalars(statement).unique().all()
-        session.commit()
-        assert len(instance) == 1
-        assert isinstance(instance := instance[0], self.model_orm)
-        self.compare_obj_before_after(client_data, instance)
-
-        # Check that the object has been created in the DB.
-        statement = select(self.model_orm)
-        instance_after = session.scalars(statement).unique().all()
-        assert len(instance_after) == 1
-        assert isinstance(instance_after := instance_after[0], self.model_orm)
-        self.compare_obj_before_after(instance, instance_after)
-
-    def test_default_assignment(
-            self,
-            freezer,
-            session: Session,
-            clients_dto: Sequence[BaseClientModel],
-    ):
-        client_data = self.get_orm_data_from_dto(choice(clients_dto))
-        # Remove all field which have default value in ORM model.
-        [client_data.pop(field) for field in self.default_values.keys()]
-
-        # Ensure that creation can proceed without fields with default values.
-        statement = self.manager.create(**client_data)
-        instance = session.scalars(statement).unique().all()
-        session.commit()
-        assert len(instance) == 1
-        assert isinstance(instance := instance[0], self.model_orm)
-        # Insert default values into the data for comparison.
-        client_data.update(self.default_values)
-        self.compare_obj_before_after(client_data, instance)
-
-        # Check that the object has been created in the DB.
-        statement = select(self.model_orm)
-        instance_after = session.scalars(statement).unique().all()
-        assert len(instance_after) == 1
-        assert isinstance(instance_after := instance_after[0], self.model_orm)
-        self.compare_obj_before_after(instance, instance_after)
-
-    def test_not_unique(
-            self,
-            session: Session,
-            clients_dto: Sequence[BaseClientModel]
-    ):
-        client_data = self.get_orm_data_from_dto(choice(clients_dto))
-
-        # Create instance of status in DB.
-        statement = self.manager.create(**client_data)
-        instance = session.scalar(statement)
-        session.commit()
-        assert isinstance(instance, self.model_orm)
-
-        # Try to create another status object with same fields values.
-        statement = self.manager.create(**client_data)
-        with pytest.raises(IntegrityError) as error:
-            session.scalar(statement)
-        kwargs = self.manager.parse_integrity_error(error.value)
-        assert kwargs == {'client_id': client_data['client_id']}
-
-        # Check that there are no changes in the DB.
-        session.rollback()
-        statement = select(self.model_orm)
-        instance_after = session.scalars(statement).unique().all()
-        assert len(instance_after) == 1
-        assert isinstance(instance_after := instance_after[0], self.model_orm)
-        self.compare_obj_before_after(instance, instance_after)
+class TestCreate(ClientTestHelper, BaseTestCreate):
+    ...
 
 
 @pytest.mark.run(order=1.01_01)
-class TestBulkCreate(BaseTestClient):
+class TestBulkCreate(ClientTestHelper):
 
     def test_base(
             self,
@@ -163,7 +88,7 @@ class TestBulkCreate(BaseTestClient):
 
 
 @pytest.mark.run(order=1.01_02)
-class TestFilter(BaseTestClient):
+class TestFilter(ClientTestHelper):
 
     def test_without_arguments(
             self,
@@ -196,8 +121,8 @@ class TestFilter(BaseTestClient):
 
 
 @pytest.mark.run(order=1.01_03)
-class TestUpdate(BaseTestClient):
-    AdapterOne = TypeAdapter(BaseTestClient.model_dto).validate_python
+class TestUpdate(ClientTestHelper):
+    AdapterOne = TypeAdapter(ClientTestHelper.model_dto).validate_python
 
     def test_update_single_client_with_client_id(
             self,
@@ -270,7 +195,7 @@ class TestUpdate(BaseTestClient):
 
 
 @pytest.mark.run(order=1.01_04)
-class TestDelete(BaseTestClient):
+class TestDelete(ClientTestHelper):
 
     def test_delete_client_with_client_id(
             self,

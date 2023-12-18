@@ -12,12 +12,11 @@ from src.banking_app.managers.base import BaseManager
 from src.banking_app.models.base import Base
 
 
-class BaseTest(ABC):
+class BaseTestHelper(ABC):
     client: TestClient
     manager: BaseManager
     model_dto: Type[BaseModel]
     model_orm: Type[Base]
-    ord_by_default: str
     prefix: str
 
     DataType: TypeAlias = Base | BaseModel | dict[str, Any]
@@ -26,6 +25,11 @@ class BaseTest(ABC):
     def fields(self) -> Sequence[str]:
         fields = self.model_orm.__table__.columns._all_columns
         return [field.name for field in fields]
+
+    @property
+    def primary_keys(self) -> set[str]:
+        fields = [getattr(self.model_orm, f) for f in self.fields]
+        return set(f.name for f in fields if f.primary_key is True)
 
     @property
     def default_values(self) -> dict[str, Any]:
@@ -113,9 +117,9 @@ class BaseTest(ABC):
         if isinstance(after[0], dict):
             after = [self.model_orm(**kwargs) for kwargs in after]              # type: ignore
 
-        # By default we sort by status, but it can be excluded.
         fields = self._get_final_field_set(exclude, fields)
-        ord_by = self.ord_by_default
+        # By default we sort by primary key, but it can be excluded.
+        ord_by = list(self.primary_keys)[0]
         if ord_by not in fields:
             ord_by = fields[0]
 
