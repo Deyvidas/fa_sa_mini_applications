@@ -234,7 +234,7 @@ class TestUpdate(BaseTestClient):
         assert isinstance(instance_after := instance_after[0], self.model_orm)
         self.compare_obj_before_after(instance, instance_after)
 
-    def test_update_unexistent_status(
+    def test_update_unexistent_client(
             self,
             session: Session,
             clients_orm: Sequence[Client],
@@ -245,7 +245,7 @@ class TestUpdate(BaseTestClient):
         new_data = ClientFactory.build(factory_use_construct=True)
         new_data = self.get_orm_data_from_dto(new_data, exclude={'client_id'})
 
-        # Make an attempt to update the status with an unexistent status_num.
+        # Make an attempt to update the client with an unexistent client_id.
         unexist_client_id = self.get_unexistent_client_id(clients_orm)
         statement = self.manager.update(
             where=dict(client_id=unexist_client_id),
@@ -267,3 +267,52 @@ class TestUpdate(BaseTestClient):
             self.manager.update(where=dict(client_id=client_id), set_value=dict())
         msg = 'Without new values, updating can\'t proceed, set_value={}.'
         assert str(error.value) == msg
+
+
+@pytest.mark.run(order=1.01_04)
+class TestDelete(BaseTestClient):
+
+    def test_delete_client_with_client_id(
+            self,
+            session: Session,
+            clients_orm: Sequence[Client],
+    ):
+        count_before = len(clients_orm)
+        client_to_delete = choice(clients_orm)
+
+        # The deleted instance must be returned after delete.
+        statement = self.manager.delete(client_id=client_to_delete.client_id)
+        instance = session.scalars(statement).unique().all()
+        session.commit()
+        assert len(instance) == 1
+        assert isinstance(instance := instance[0], self.model_orm)
+        self.compare_obj_before_after(client_to_delete, instance)
+
+        # Ensure that the object is deleted from the DB.
+        statement = self.manager.filter()
+        instances: Sequence[Client] = session.scalars(statement).unique().all()
+        assert len(instances) == count_before - 1
+
+        found = list(filter(
+            lambda i: i.client_id == client_to_delete.client_id, instances
+        ))
+        assert len(found) == 0
+
+    def test_delete_unexistent_client(
+            self,
+            session: Session,
+            clients_orm: Sequence[Client],
+    ):
+        clients_before = deepcopy(clients_orm)
+
+        # Make an attempt to delete the client with an unexistent client_id.
+        unexist_client_id = self.get_unexistent_client_id(clients_orm)
+        statement = self.manager.delete(client_id=unexist_client_id)
+        instance = session.scalars(statement).unique().all()
+        session.commit()
+        assert len(instance) == 0
+
+        # Ensure that the objects in the DB not been changed.
+        statement = self.manager.filter()
+        instances_after = session.scalars(statement).unique().all()
+        self.compare_list_before_after(clients_before, instances_after)

@@ -238,16 +238,15 @@ class TestDelete(BaseTestStatus):
         instance = session.scalars(statement).unique().all()
         session.commit()
         assert len(instance) == 1
-        self.compare_obj_before_after(status_to_delete, instance[0])
+        assert isinstance(instance := instance[0], self.model_orm)
+        self.compare_obj_before_after(status_to_delete, instance)
 
         # Ensure that the object is deleted from the DB.
         statement = self.manager.filter()
-        instances = session.scalars(statement).unique().all()
+        instances: Sequence[Status] = session.scalars(statement).unique().all()
         assert len(instances) == count_before - 1
 
-        exp = [f's.{f}=={repr(getattr(status_to_delete, f))}' for f in self.fields]
-        exp = ' and '.join(exp)  # "s.status==... and s.description=='...' and ..."
-        found = list(filter(lambda s: eval(exp), instances))
+        found = list(filter(lambda i: i.status == status_to_delete.status, instances))
         assert len(found) == 0
 
     def test_delete_unexistent_status(
