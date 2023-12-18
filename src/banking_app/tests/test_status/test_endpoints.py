@@ -1,7 +1,7 @@
 import pytest
 
 from copy import deepcopy
-from fastapi import status
+from fastapi import status as _status
 from random import choice
 from sqlalchemy.orm.session import Session
 from typing import Sequence
@@ -14,9 +14,9 @@ from src.banking_app.tests.test_status.conftest import BaseTestStatus
 @pytest.mark.run(order=2.00_00)
 class TestRetrieve(BaseTestStatus):
 
-    def test_get_all_statuses(self, statuses_orm: list[Status]):
+    def test_get_all_statuses(self, statuses_orm: Sequence[Status]):
         response = self.client.get(f'{self.prefix}/list')
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == _status.HTTP_200_OK
 
         body = response.json()
         assert body is not None and isinstance(body, list)
@@ -26,17 +26,17 @@ class TestRetrieve(BaseTestStatus):
     @pytest.mark.parametrize(
         argnames='status_code',
         argvalues=(
-            pytest.param(status.HTTP_200_OK, id='existent status number'),
-            pytest.param(status.HTTP_404_NOT_FOUND, id='unexistent status number'),
+            pytest.param(_status.HTTP_200_OK, id='existent status number'),
+            pytest.param(_status.HTTP_404_NOT_FOUND, id='unexistent status number'),
         ),
     )
     def test_get_status_with_number(
             self,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
             status_code: int,
     ):
         # Test case when user try to get status with unexistent status number.
-        if status_code == status.HTTP_404_NOT_FOUND:
+        if status_code == _status.HTTP_404_NOT_FOUND:
             unexist_status = self.get_unexistent_status_num(statuses_orm)
             response = self.client.get(f'{self.prefix}/{unexist_status}')
             assert response.status_code == status_code
@@ -61,7 +61,7 @@ class TestPost(BaseTestStatus):
     def test_add_status(
             self,
             session: Session,
-            statuses_dto: list[BaseStatusModel],
+            statuses_dto: Sequence[BaseStatusModel],
     ):
         # Check that the DB is empty.
         statement = self.manager.filter()
@@ -71,7 +71,7 @@ class TestPost(BaseTestStatus):
         # Make POST query.
         new_status = choice(statuses_dto)
         response = self.client.post(f'{self.prefix}', json=new_status.model_dump())
-        assert response.status_code == status.HTTP_201_CREATED
+        assert response.status_code == _status.HTTP_201_CREATED
 
         # Expect than posted status was returned.
         body = response.json()
@@ -81,9 +81,10 @@ class TestPost(BaseTestStatus):
 
         # Check if posted status is saved into DB.
         statement = self.manager.filter()
-        statuses = session.scalars(statement).unique().all()
-        assert len(statuses) == 1
-        self.compare_obj_before_after(new_status, statuses[0])
+        instance = session.scalars(statement).unique().all()
+        assert len(instance) == 1
+        assert isinstance(instance := instance[0], self.model_orm)
+        self.compare_obj_before_after(new_status, instance)
 
         # Then POST status with already existed status (status must be unique).
         invalid_status = dict(
@@ -91,7 +92,7 @@ class TestPost(BaseTestStatus):
             description=f'{new_status.description} (new)',
         )
         response = self.client.post(f'{self.prefix}', json=invalid_status)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == _status.HTTP_400_BAD_REQUEST
 
         # Check if an appropriate error message was returned.
         msg = self.not_unique_msg(status=invalid_status['status'])
@@ -100,7 +101,7 @@ class TestPost(BaseTestStatus):
     def test_add_statuses(
             self,
             session: Session,
-            statuses_dto: list[BaseStatusModel],
+            statuses_dto: Sequence[BaseStatusModel],
     ):
         url = f'{self.prefix}/list'
 
@@ -112,7 +113,7 @@ class TestPost(BaseTestStatus):
         # Make POST query.
         statuses_data = [status.model_dump() for status in statuses_dto]
         response = self.client.post(url, json=statuses_data)
-        assert response.status_code == status.HTTP_201_CREATED
+        assert response.status_code == _status.HTTP_201_CREATED
 
         # Expect that posted statuses will be returned in the response body.
         body = response.json()
@@ -144,7 +145,7 @@ class TestPost(BaseTestStatus):
         existent_status = [choice(statuses_data)]
 
         response = self.client.post(url, json=new_statuses + existent_status)  # Invalid status placed at the last!
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == _status.HTTP_400_BAD_REQUEST
 
         # Check if an appropriate error message was returned.
         msg = self.not_unique_msg(status=existent_status[0]['status'])
@@ -171,7 +172,7 @@ class TestUpdate(BaseTestStatus):
             self,
             method: str,
             session: Session,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
     ):
         functions = {
             'PUT': self.client.put,
@@ -188,7 +189,7 @@ class TestUpdate(BaseTestStatus):
 
         # Make query.
         response = query_function(url, json=new_field_values)
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == _status.HTTP_200_OK
 
         # Check than updated object is returned.
         body = response.json()
@@ -203,23 +204,24 @@ class TestUpdate(BaseTestStatus):
 
         # Check than object is changed in DB.
         statement = self.manager.filter(status=upd_status_num)
-        statuses: Sequence[Status] = session.scalars(statement).unique().all()
-        assert len(statuses) == 1
-        assert statuses[0].status == upd_status_num
+        instance = session.scalars(statement).unique().all()
+        assert len(instance) == 1
+        assert isinstance(instance := instance[0], self.model_orm)
+        assert instance.status == upd_status_num
         self.compare_obj_before_after(
             new_field_values,
-            statuses[0],
+            instance,
             exclude=['status'],
         )
 
         # Make deepcopy of objects to compare than after, to prevent changing in list after commit.
-        statuses_before = deepcopy(statuses_orm)
+        instances_before = deepcopy(statuses_orm)
 
         # Then I try to update unexistent status.
         unexist_status = self.get_unexistent_status_num(statuses_orm)
         url = f'{self.prefix}/{unexist_status}'
         response = query_function(url, json=new_field_values)
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.status_code == _status.HTTP_404_NOT_FOUND
 
         # Check than not found message is returned.
         body = response.json()
@@ -229,23 +231,23 @@ class TestUpdate(BaseTestStatus):
 
         # Check than objects in DB not changed.
         statement = self.manager.filter()
-        statuses_after = session.scalars(statement).unique().all()
-        assert len(statuses_after) == len(statuses_before)
-        self.compare_list_before_after(statuses_before, statuses_after)
+        instances_after = session.scalars(statement).unique().all()
+        assert len(instances_after) == len(instances_before)
+        self.compare_list_before_after(instances_before, instances_after)
 
     def test_partial_update_status_with_empty_body(
             self,
             session: Session,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
     ):
-        statuses_before = deepcopy(statuses_orm)
+        instances_before = deepcopy(statuses_orm)
         to_update = choice(statuses_orm)
         upd_status_num = to_update.status
         url = f'{self.prefix}/{upd_status_num}'
 
         # Make PATCH query.
         response = self.client.patch(url, json=dict())
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == _status.HTTP_400_BAD_REQUEST
 
         # Check than error message is returned.
         body = response.json()
@@ -255,9 +257,9 @@ class TestUpdate(BaseTestStatus):
 
         # Check than objects in DB not changed.
         statement = self.manager.filter()
-        statuses_after = session.scalars(statement).unique().all()
-        assert len(statuses_after) == len(statuses_before)
-        self.compare_list_before_after(statuses_before, statuses_after)
+        instances_after = session.scalars(statement).unique().all()
+        assert len(instances_after) == len(instances_before)
+        self.compare_list_before_after(instances_before, instances_after)
 
 
 @pytest.mark.run(order=2.00_03)
@@ -266,7 +268,7 @@ class TestDelete(BaseTestStatus):
     def test_delete_status_with_status_number(
             self,
             session: Session,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
     ):
         count = len(statuses_orm)
         status_to_delete = choice(statuses_orm)
@@ -275,7 +277,7 @@ class TestDelete(BaseTestStatus):
 
         # Make DELETE query.
         response = self.client.delete(url)
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == _status.HTTP_200_OK
 
         # Expect than deleted status was returned.
         body = response.json()
@@ -285,21 +287,21 @@ class TestDelete(BaseTestStatus):
 
         # Check than status isn't in the DB.
         statement = self.manager.filter()
-        statuses = session.scalars(statement).unique().all()
-        assert len(statuses) == (count - 1)
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) == (count - 1)
         exp = [f's.{f}=={repr(getattr(status_to_delete, f))}' for f in self.fields]
         exp = ' and '.join(exp)
-        found = list(filter(lambda s: eval(exp), statuses))
+        found = list(filter(lambda s: eval(exp), instances))
         assert len(found) == 0
 
         # Then try DELETE not existent status.
         response = self.client.delete(url)
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.status_code == _status.HTTP_404_NOT_FOUND
         msg = self.not_found_msg(status=del_status_num)
         assert response.json() == {'detail': msg}
 
         # Check that unsuccessful deletion does not change the len and attributes in the database.
         statement = self.manager.filter()
-        statuses_after: list[Status] = list(session.scalars(statement).unique().all())
-        assert len(statuses_after) == len(statuses)
-        self.compare_list_before_after(statuses_after, statuses)
+        instances_after: Sequence[Status] = list(session.scalars(statement).unique().all())
+        assert len(instances_after) == len(instances)
+        self.compare_list_before_after(instances_after, instances)

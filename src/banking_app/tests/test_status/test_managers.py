@@ -1,6 +1,7 @@
 import pytest
 
 from copy import deepcopy
+from pydantic import TypeAdapter
 from random import choice
 
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +13,7 @@ from typing import Sequence
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.tests.test_status.conftest import BaseTestStatus
+from src.banking_app.tests.test_status.factory import StatusFactory
 
 
 @pytest.mark.run(order=1.00_00)
@@ -25,7 +27,7 @@ class TestCreate(BaseTestStatus):
         status_dto = choice(statuses_dto)
 
         # Test that create returns the created instance.
-        statement = self.manager.create(**status_dto.model_dump())
+        statement = self.manager.create(**self.get_orm_data_from_dto(status_dto))
         instance = session.scalars(statement).unique().all()
         session.commit()
         assert len(instance) == 1
@@ -47,13 +49,13 @@ class TestCreate(BaseTestStatus):
         status_dto = choice(statuses_dto)
 
         # Create instance of status in DB.
-        statement = self.manager.create(**status_dto.model_dump())
+        statement = self.manager.create(**self.get_orm_data_from_dto(status_dto))
         instance = session.scalar(statement)
         session.commit()
-        assert isinstance(instance, Status)
+        assert isinstance(instance, self.model_orm)
 
         # Try to create another status object with same fields values.
-        statement = self.manager.create(**status_dto.model_dump())
+        statement = self.manager.create(**self.get_orm_data_from_dto(status_dto))
         with pytest.raises(IntegrityError) as error:
             session.scalar(statement)
         kwargs = self.manager.parse_integrity_error(error.value)
@@ -75,7 +77,7 @@ class TestBulkCreate(BaseTestStatus):
             session: Session,
             statuses_dto: Sequence[BaseStatusModel],
     ):
-        list_kwargs = [s.model_dump() for s in statuses_dto]
+        list_kwargs = [self.get_orm_data_from_dto(s) for s in statuses_dto]
 
         # Test if bulk_create returns a list of created instances.
         statement = self.manager.bulk_create(list_kwargs)
@@ -96,13 +98,13 @@ class TestBulkCreate(BaseTestStatus):
         half = int(len(statuses_dto) / 2)
 
         # Saving the first part of having statuses.
-        first_half = [s.model_dump() for s in statuses_dto[:half]]
+        first_half = [self.get_orm_data_from_dto(s) for s in statuses_dto[:half]]
         statement = self.manager.bulk_create(first_half)
         instances = session.scalars(statement).unique().all()
         session.commit()
 
         # Try to create new statuses that are mixed with already existing statuses.
-        second_half = [s.model_dump() for s in statuses_dto[half:]]
+        second_half = [self.get_orm_data_from_dto(s) for s in statuses_dto[half:]]
         second_half += [first_half[0], first_half[-1]]
         statement = self.manager.bulk_create(second_half)
         with pytest.raises(IntegrityError) as error:
@@ -123,7 +125,7 @@ class TestFilter(BaseTestStatus):
     def test_without_arguments(
             self,
             session: Session,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
     ):
         # Check that filtering without parameters returns all objects from the DB.
         statement = self.manager.filter()
@@ -133,14 +135,14 @@ class TestFilter(BaseTestStatus):
     def test_by_status_number(
             self,
             session: Session,
-            statuses_orm: list[Status]
+            statuses_orm: Sequence[Status]
     ):
         # Filtering by existent status number.
         existent_status = choice(statuses_orm)
         statement = self.manager.filter(status=existent_status.status)
         instance = session.scalars(statement).unique().all()
         assert len(instance) == 1
-        assert isinstance(instance := instance[0], Status)
+        assert isinstance(instance := instance[0], self.model_orm)
         self.compare_obj_before_after(existent_status, instance)
 
         # Filtering by unexistent status number.
@@ -152,49 +154,47 @@ class TestFilter(BaseTestStatus):
 
 @pytest.mark.run(order=1.00_03)
 class TestUpdate(BaseTestStatus):
+    AdapterOne = TypeAdapter(BaseTestStatus.model_dto).validate_python
 
     def test_update_single_status_with_status_num(
             self,
             session: Session,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
     ):
         status_to_update = choice(statuses_orm)
 
+        # Prepare data.
+        new_status_dto = StatusFactory().build(factory_use_construct=True)
+        while self.AdapterOne(status_to_update) == new_status_dto:
+            status_to_update = choice(statuses_orm)
+        status_to_update = deepcopy(status_to_update)  # To save original state.
+        new_data = self.get_orm_data_from_dto(new_status_dto, exclude={'status'})
+
         # Update must change single status and return it with updated field values.
-        new_description = status_to_update.description + '(updated)'
         statement = self.manager.update(
             where=dict(status=status_to_update.status),
-            set_value=dict(description=new_description),
+            set_value=new_data,
         )
-        instances = session.scalars(statement).unique().all()
+        instance = session.scalars(statement).unique().all()
         session.commit()
-        assert len(instances) == 1
+        assert len(instance) == 1
+        assert isinstance(instance := instance[0], self.model_orm)
 
-        # Check the new value of description field.
-        instance = instances[0]
-        assert isinstance(instance, Status)
-        assert instance.description == new_description
-        self.compare_obj_before_after(
-            status_to_update,
-            instance,
-            exclude=['description'],
-        )
+        # Check that the updated status has been returned with updated fields.
+        new_data['status'] = status_to_update.status
+        self.compare_obj_before_after(new_data, instance)
 
         # Ensure that the object has new values in the DB.
-        statement = self.manager.filter(status=instance.status)
+        statement = self.manager.filter(status=status_to_update.status)
         instance_after = session.scalars(statement).unique().all()
-        assert len(instance_after) == 1 and isinstance(instance_after[0], Status)
-        assert instance_after[0].description == new_description
-        self.compare_obj_before_after(
-            status_to_update,
-            instance_after[0],
-            exclude=['description'],
-        )
+        assert len(instance_after) == 1
+        assert isinstance(instance_after := instance_after[0], self.model_orm)
+        self.compare_obj_before_after(instance, instance_after)
 
     def test_update_unexistent_status(
             self,
             session: Session,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
     ):
         statuses_before = deepcopy(statuses_orm)
 
@@ -213,7 +213,7 @@ class TestUpdate(BaseTestStatus):
         statuses_after = session.scalars(statement).unique().all()
         self.compare_list_before_after(statuses_before, statuses_after)
 
-    def test_update_without_new_values(self, statuses_orm: list[Status]):
+    def test_update_without_new_values(self, statuses_orm: Sequence[Status]):
         # Make an attempt to create statement without values.
         status = choice(statuses_orm).status
         with pytest.raises(ValueError) as error:
@@ -228,7 +228,7 @@ class TestDelete(BaseTestStatus):
     def test_delete_status_with_status_number(
             self,
             session: Session,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
     ):
         count_before = len(statuses_orm)
         status_to_delete = choice(statuses_orm)
@@ -253,7 +253,7 @@ class TestDelete(BaseTestStatus):
     def test_delete_unexistent_status(
             self,
             session: Session,
-            statuses_orm: list[Status],
+            statuses_orm: Sequence[Status],
     ):
         statuses_before = deepcopy(statuses_orm)
 

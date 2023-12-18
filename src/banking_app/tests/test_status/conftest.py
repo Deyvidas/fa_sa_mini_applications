@@ -6,6 +6,7 @@ from sqlalchemy.orm.session import Session
 
 from typing import Any
 from typing import Sequence
+from typing import Type
 from typing import TypeAlias
 
 from src.banking_app.main import banking_app
@@ -23,9 +24,9 @@ manager = StatusManager()
 @pytest.mark.usefixtures('create_and_drop_tables')
 class BaseTestStatus(BaseTest):
     client = TestClient(banking_app)
-    manager = manager
-    model_orm = Status
-    model_dto = BaseStatusModel
+    manager: StatusManager = manager
+    model_orm: Type[Status] = Status
+    model_dto: Type[BaseStatusModel] = BaseStatusModel
     prefix = '/status'
     ord_by_default = 'status'
 

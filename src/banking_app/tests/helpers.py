@@ -55,6 +55,17 @@ class BaseTest(ABC):
             ' received empty body, change at least value of one field.'
         )
 
+    def get_orm_data_from_dto(
+            self,
+            dto_model: BaseModel,
+            *,
+            exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        _exclude = set(self.model_dto.model_fields.keys()) - set(self.fields)
+        if exclude is not None:
+            _exclude = _exclude.union(exclude)
+        return dto_model.model_dump(exclude=_exclude)
+
     def get_unexistent_numeric_value(
             self,
             *,

@@ -6,6 +6,7 @@ from sqlalchemy.orm.session import Session
 
 from typing import Any
 from typing import Sequence
+from typing import Type
 from typing import TypeAlias
 
 from src.banking_app.main import banking_app
@@ -23,17 +24,14 @@ ClientData: TypeAlias = Client | BaseClientModel | dict[str, Any]
 @pytest.mark.usefixtures('create_and_drop_tables')
 class BaseTestClient(BaseTest):
     client = TestClient(banking_app)
-    manager = manager
-    model_dto = BaseClientModel
-    model_orm = Client
+    manager: ClientManager = manager
+    model_dto: Type[BaseClientModel] = BaseClientModel
+    model_orm: Type[Client] = Client
     ord_by_default = 'client_id'
     prefix = '/clients'
 
     def get_unexistent_client_id(self, objects: Sequence[ClientData]) -> int:
         return super().get_unexistent_numeric_value(field='client_id', objects=objects)
-
-    def get_required_values(self, model_dto: BaseClientModel) -> dict[str, Any]:
-        return {field: getattr(model_dto, field) for field in self.fields}
 
 
 @pytest.fixture

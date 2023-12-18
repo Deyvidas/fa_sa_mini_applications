@@ -4,7 +4,7 @@ from polyfactory.fields import Use
 
 from typing import Sequence
 
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.models.client import DEFAULT_CLIENT_STATUS
 
 
@@ -21,7 +21,7 @@ class StatusFactoryHelper:
 
 
 class StatusFactory(ModelFactory):
-    __model__ = StatusRetrieve
+    __model__ = BaseStatusModel
     status = Use(StatusFactoryHelper.status)
 
     @post_generated
@@ -30,7 +30,7 @@ class StatusFactory(ModelFactory):
         return f'Test description {status}'
 
 
-factory_statuses_dto: Sequence[StatusRetrieve] = StatusFactory.batch(
+factory_statuses_dto: Sequence[BaseStatusModel] = StatusFactory.batch(
     StatusFactoryHelper.AMOUNT,
     factory_use_construct=True,
 )
