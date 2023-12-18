@@ -2,9 +2,12 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import status
 
+from pydantic import TypeAdapter
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.session import Session
 
+from typing import TypeAlias
 from typing import Sequence
 
 from src.banking_app.connection import activate_session
@@ -24,11 +27,17 @@ router = APIRouter(
     tags=['Balance'],
 )
 
+RetrieveOneModel: TypeAlias = BalanceRetrieve
+RetrieveManyModel: TypeAlias = Sequence[RetrieveOneModel]
+
+RetrieveOne = TypeAdapter(RetrieveOneModel).validate_python
+RetrieveMany = TypeAdapter(RetrieveManyModel).validate_python
+
 
 @router.get(
     path='/list-balances-between',
     status_code=status.HTTP_200_OK,
-    response_model=list[BalanceRetrieve],
+    response_model=RetrieveManyModel,
 )
 def get_balances_with_amount_between(
         min_amount: MoneyAmount,
@@ -39,24 +48,24 @@ def get_balances_with_amount_between(
         current_amount__between=(min_amount, max_amount)
     )
     instances: Sequence[Balance] = session.scalars(statement).unique().all()
-    return [instance.to_dto_model(BalanceRetrieve) for instance in instances]
+    return RetrieveMany(instances)
 
 
 @router.get(
     path='/list',
     status_code=status.HTTP_200_OK,
-    response_model=list[BalanceRetrieve],
+    response_model=RetrieveManyModel,
 )
 def get_all_balances(session: Session = Depends(activate_session)):
     statement = manager.filter()
     instances: Sequence[Balance] = session.scalars(statement).unique().all()
-    return [instance.to_dto_model(BalanceRetrieve) for instance in instances]
+    return RetrieveMany(instances)
 
 
 @router.post(
     path='/list',
     status_code=status.HTTP_201_CREATED,
-    response_model=list[BalanceRetrieve],
+    response_model=RetrieveManyModel,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -72,7 +81,7 @@ def add_list_of_balances(
         clients = set(balance.client for balance in balances)
         [client.actualize_balance() for client in clients]
         session.commit()
-        return [balance.to_dto_model(BalanceRetrieve) for balance in balances]
+        return RetrieveMany(balances)
     except IntegrityError as error:
         session.rollback()
         if 'client_id' not in error._message():
@@ -88,7 +97,7 @@ def add_list_of_balances(
 @router.post(
     path='/',
     status_code=status.HTTP_201_CREATED,
-    response_model=BalanceRetrieve,
+    response_model=RetrieveOneModel,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -102,7 +111,7 @@ def add_balance(
         instance: Balance = session.scalar(statement)
         instance.client.actualize_balance()
         session.commit()
-        return instance.to_dto_model(BalanceRetrieve)
+        return RetrieveOne(instance)
     except IntegrityError as error:
         session.rollback()
         if 'client_id' not in error._message():

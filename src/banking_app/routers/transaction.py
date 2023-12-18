@@ -1,10 +1,14 @@
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import status
 
-from http import HTTPStatus as status
+from pydantic import TypeAdapter
 
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import select
+
+from typing import Sequence
+from typing import TypeAlias
 
 from src.banking_app.connection import activate_session
 from src.banking_app.models.transaction import Transaction
@@ -17,23 +21,28 @@ router = APIRouter(
     tags=['Card transactions'],
 )
 
+RetrieveOneModel: TypeAlias = TransactionGetDTO
+RetrieveManyModel: TypeAlias = Sequence[RetrieveOneModel]
+
+RetrieveOne = TypeAdapter(RetrieveOneModel).validate_python
+RetrieveMany = TypeAdapter(RetrieveManyModel).validate_python
+
 
 @router.get(
     path='/',
-    status_code=status.OK,
-    response_model=list[TransactionGetDTO],
+    status_code=status.HTTP_200_OK,
+    response_model=RetrieveManyModel,
 )
 def get_transactions(session: Session = Depends(activate_session)):
     query = select(Transaction)
     instances = session.execute(query).scalars().all()
-    result = [inst.to_dto_model(TransactionGetDTO) for inst in instances]
-    return result
+    return RetrieveMany(instances)
 
 
 @router.post(
     path='/',
-    status_code=status.CREATED,
-    response_model=TransactionGetDTO,
+    status_code=status.HTTP_201_CREATED,
+    response_model=RetrieveOneModel,
 )
 def add_transaction(
         transaction_data: TransactionPostDTO,
@@ -42,4 +51,4 @@ def add_transaction(
     instance = Transaction(**transaction_data.model_dump())
     session.add(instance)
     session.commit()
-    return instance.to_dto_model(TransactionGetDTO)
+    return RetrieveOne(instance)

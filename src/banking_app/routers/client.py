@@ -2,16 +2,18 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import status
 
+from pydantic import TypeAdapter
 from sqlalchemy.orm.session import Session
 
 from typing import Sequence
+from typing import TypeAlias
 
 from src.banking_app.conf import NotSpecifiedParam
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.client import ClientManager
 from src.banking_app.models.client import Client
-from src.banking_app.schemas.client import ClientRetrieve
 from src.banking_app.schemas.client import ClientCreate
+from src.banking_app.schemas.client import ClientRetrieve
 from src.banking_app.types.client import SexEnum
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import ErrorType
@@ -24,11 +26,17 @@ router = APIRouter(
     tags=['Client'],
 )
 
+RetrieveOneModel: TypeAlias = ClientRetrieve
+RetrieveManyModel: TypeAlias = Sequence[RetrieveOneModel]
+
+RetrieveOne = TypeAdapter(RetrieveOneModel).validate_python
+RetrieveMany = TypeAdapter(RetrieveManyModel).validate_python
+
 
 @router.get(
     path='/list-filtered',
     status_code=status.HTTP_200_OK,
-    response_model=list[ClientRetrieve],
+    response_model=RetrieveManyModel,
 )
 def get_clients_filtered_by(
         status_code: int = NotSpecifiedParam,                                   # type: ignore
@@ -44,24 +52,24 @@ def get_clients_filtered_by(
         sex=sex,
     )
     instances: Sequence[Client] = session.scalars(statement).unique().all()
-    return [instance.to_dto_model(ClientRetrieve) for instance in instances]
+    return RetrieveMany(instances)
 
 
 @router.get(
     path='/list',
     status_code=status.HTTP_200_OK,
-    response_model=list[ClientRetrieve],
+    response_model=RetrieveManyModel,
 )
 def get_all_clients(session: Session = Depends(activate_session)):
     statement = manager.filter()
     instances: Sequence[Client] = session.scalars(statement).unique().all()
-    return [instance.to_dto_model(ClientRetrieve) for instance in instances]
+    return RetrieveMany(instances)
 
 
 @router.post(
     path='/list',
     status_code=status.HTTP_201_CREATED,
-    response_model=list[ClientRetrieve],
+    response_model=RetrieveManyModel,
 )
 def add_list_of_clients(
         clients_list: list[ClientCreate],
@@ -71,13 +79,13 @@ def add_list_of_clients(
     statement = manager.bulk_create(list_kwargs)
     instances: Sequence[Client] = session.scalars(statement).unique().all()
     session.commit()
-    return [instance.to_dto_model(ClientRetrieve) for instance in instances]
+    return RetrieveMany(instances)
 
 
 @router.post(
     path='/',
     status_code=status.HTTP_201_CREATED,
-    response_model=ClientRetrieve,
+    response_model=RetrieveOneModel,
 )
 def add_client(
         client_data: ClientCreate,
@@ -87,7 +95,7 @@ def add_client(
     instance = session.scalar(statement)
     if isinstance(instance, Client):
         session.commit()
-        return instance.to_dto_model(ClientRetrieve)
+        return RetrieveOne(instance)
     raise ValueError(
         f'Something went wrong when try post to\n'
         f' url={router.prefix}\n'
@@ -98,7 +106,7 @@ def add_client(
 @router.get(
     path='/{client_id}',
     status_code=status.HTTP_200_OK,
-    response_model=ClientRetrieve,
+    response_model=RetrieveOneModel,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -110,7 +118,7 @@ def get_client_by_id(
     statement = manager.filter(client_id=client_id)
     instance = session.scalar(statement)
     if isinstance(instance, Client):
-        return instance.to_dto_model(ClientRetrieve)
+        return RetrieveOne(instance)
     BaseExceptionRaiser(
         model=Client,
         error_type=ErrorType.NOT_FOUND_404,
@@ -121,7 +129,7 @@ def get_client_by_id(
 @router.delete(
     path='/{client_id}',
     status_code=status.HTTP_200_OK,
-    response_model=ClientRetrieve,
+    response_model=RetrieveOneModel,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -135,7 +143,7 @@ def delete_client_with_id(
     session.commit()
 
     if isinstance(instance, Client):
-        return instance.to_dto_model(ClientRetrieve)
+        return RetrieveOne(instance)
     BaseExceptionRaiser(
         model=Client,
         error_type=ErrorType.NOT_FOUND_404,

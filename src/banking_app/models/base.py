@@ -2,7 +2,6 @@ from datetime import date
 from datetime import datetime
 
 from decimal import Decimal
-
 from pydantic import BaseModel
 
 from sqlalchemy import String
@@ -12,7 +11,6 @@ from sqlalchemy.types import DECIMAL
 
 from typing import Annotated
 from typing import Any
-from typing import Type
 from typing import TypeVar
 
 from src.banking_app.conf import settings
@@ -59,8 +57,3 @@ class Base(DeclarativeBase):
 
     def __call__(self, *args: Any, **kwargs: Any) -> None:
         return super().__init__(*args, **kwargs)
-
-    def to_dto_model(self, DTOModel: Type[BaseModelType]) -> BaseModelType:
-        fields = DTOModel.model_fields.keys()
-        data = {field: getattr(self, field) for field in fields}
-        return DTOModel(**data)

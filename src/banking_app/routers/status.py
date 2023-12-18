@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import status
 
-from typing import Sequence
+from pydantic import TypeAdapter
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.session import Session
+
+from typing import Sequence
+from typing import TypeAlias
 
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.status import StatusManager
@@ -26,22 +30,28 @@ router = APIRouter(
     tags=['Status description'],
 )
 
+RetrieveOneModel: TypeAlias = StatusRetrieve
+RetrieveManyModel: TypeAlias = Sequence[RetrieveOneModel]
+
+RetrieveOne = TypeAdapter(RetrieveOneModel).validate_python
+RetrieveMany = TypeAdapter(RetrieveManyModel).validate_python
+
 
 @router.get(
     path='/list',
     status_code=status.HTTP_200_OK,
-    response_model=list[StatusRetrieve],
+    response_model=RetrieveManyModel,
 )
 def get_all_statuses(session: Session = Depends(activate_session)):
     statement = manager.filter()
     instances: Sequence[Status] = session.scalars(statement).unique().all()
-    return [instance.to_dto_model(StatusRetrieve) for instance in instances]
+    return RetrieveMany(instances)
 
 
 @router.post(
     path='/list',
     status_code=status.HTTP_201_CREATED,
-    response_model=list[StatusRetrieve],
+    response_model=RetrieveManyModel,
     responses={
         status.HTTP_400_BAD_REQUEST: {'model': UniquesViolationMessage}
     },
@@ -55,7 +65,7 @@ def add_statuses(
         statement = manager.bulk_create(kwargs_list)
         instances: Sequence[Status] = session.scalars(statement).unique().all()
         session.commit()
-        return [instance.to_dto_model(StatusRetrieve) for instance in instances]
+        return RetrieveMany(instances)
 
     except IntegrityError as error:
         session.rollback()
@@ -71,7 +81,7 @@ def add_statuses(
 @router.post(
     path='/',
     status_code=status.HTTP_201_CREATED,
-    response_model=StatusRetrieve,
+    response_model=RetrieveOneModel,
     responses={
         status.HTTP_400_BAD_REQUEST: {'model': UniquesViolationMessage},
     }
@@ -85,7 +95,7 @@ def add_status(
         instance = session.scalar(statement)
         if isinstance(instance, Status):
             session.commit()
-            return instance.to_dto_model(StatusRetrieve)
+            return RetrieveOne(instance)
 
     except IntegrityError as error:
         session.rollback()
@@ -101,7 +111,7 @@ def add_status(
 @router.get(
     path='/{status_num}',
     status_code=status.HTTP_200_OK,
-    response_model=StatusRetrieve,
+    response_model=RetrieveOneModel,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -113,7 +123,7 @@ def get_status_with_status_number(
     statement = manager.filter(status=status_num)
     instance = session.scalar(statement)
     if isinstance(instance, Status):
-        return instance.to_dto_model(StatusRetrieve)
+        return RetrieveOne(instance)
 
     BaseExceptionRaiser(
         model=Status,
@@ -125,7 +135,7 @@ def get_status_with_status_number(
 @router.put(
     path='/{status_num}',
     status_code=status.HTTP_200_OK,
-    response_model=StatusRetrieve,
+    response_model=RetrieveOneModel,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -142,7 +152,7 @@ def full_update_status_with_status_number(
     instance = session.scalar(statement)
     if isinstance(instance, Status):
         session.commit()
-        return instance.to_dto_model(StatusRetrieve)
+        return RetrieveOne(instance)
     BaseExceptionRaiser(
         model=Status,
         error_type=ErrorType.NOT_FOUND_404,
@@ -153,7 +163,7 @@ def full_update_status_with_status_number(
 @router.patch(
     path='/{status_num}',
     status_code=status.HTTP_200_OK,
-    response_model=StatusRetrieve,
+    response_model=RetrieveOneModel,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
         status.HTTP_400_BAD_REQUEST: {'model': EmptyBodyOnPatchMessage}
@@ -172,7 +182,7 @@ def partial_update_status_with_status_number(
         instance = session.scalar(statement)
         if isinstance(instance, Status):
             session.commit()
-            return instance.to_dto_model(StatusRetrieve)
+            return RetrieveOne(instance)
 
         BaseExceptionRaiser(
             model=Status,
@@ -193,7 +203,7 @@ def partial_update_status_with_status_number(
 @router.delete(
     path='/{status_num}',
     status_code=status.HTTP_200_OK,
-    response_model=StatusRetrieve,
+    response_model=RetrieveOneModel,
     responses={
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
@@ -206,7 +216,7 @@ def delete_status_with_status_number(
     instance = session.scalar(statement)
     if isinstance(instance, Status):
         session.commit()
-        return instance.to_dto_model(StatusRetrieve)
+        return RetrieveOne(instance)
 
     BaseExceptionRaiser(
         model=Status,
