@@ -30,7 +30,7 @@ class ClientFactoryHelper:
 
     @classmethod
     def client_status(cls) -> StatusRetrieve:
-        return choice(factory_statuses_dto)
+        return StatusRetrieve(**choice(factory_statuses_dto).model_dump())
 
     @classmethod
     def birth_date(cls, _, values: dict[str, Any]) -> date:

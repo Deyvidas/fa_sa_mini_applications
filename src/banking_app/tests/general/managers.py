@@ -1,5 +1,8 @@
 import pytest
 
+from copy import deepcopy
+from pydantic import TypeAdapter
+
 from random import choice
 from random import sample
 
@@ -8,6 +11,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import select
 
 from src.banking_app.tests.helpers import BaseTestHelper
+from src.banking_app.managers.base import UPDATE_WITH_EMPTY_BODY_MSG
 
 
 class BaseTestCreate(BaseTestHelper):
@@ -165,3 +169,82 @@ class BaseTestFilter(BaseTestHelper):
             statement = self.manager.filter(**{pk: unexistent_pk})
             instance = session.scalar(statement)
             assert instance is None
+
+
+class BaseTestUpdate(BaseTestHelper):
+
+    def test_single_instance_by_pk(self, session: Session, models_orm):
+        get_dto_from_orm = TypeAdapter(self.model_dto).validate_python
+
+        for pk in (pks := self.primary_keys):
+            instance_to_update = choice(models_orm)
+
+            # Prepare data.
+            new_model_dto = self.factory.build(factory_use_construct=True)
+            assert type(new_model_dto) is self.model_dto
+            # Check if the generated dto model has different values from the instance values.
+            while get_dto_from_orm(instance_to_update) == new_model_dto:
+                instance_to_update = choice(models_orm)
+            instance_to_update = deepcopy(instance_to_update)  # To save original state.
+            # Exclude current pk and for other primary keys set value equal to instance_to_update.
+            new_data = self.get_orm_data_from_dto(new_model_dto, exclude={pk})
+            [new_data.update({f: getattr(instance_to_update, f)}) for f in pks - {pk}]
+
+            # Update by pk must change single instance and return it, with updated field.
+            statement = self.manager.update(
+                where={pk: getattr(instance_to_update, pk)},
+                set_value=new_data,
+            )
+            instance = session.scalars(statement).unique().all()
+            session.commit()
+            assert len(instance) == 1
+            assert isinstance(instance := instance[0], self.model_orm)
+
+            # Check that the updated instance has been returned with updated fields.
+            new_data.update({pk: getattr(instance_to_update, pk)})
+            self.compare_obj_before_after(instance, new_data)
+
+            # Ensure that the instance has new values in the DB.
+            statement = self.manager.filter(**{pk: getattr(instance_to_update, pk)})
+            instance_after = session.scalars(statement).unique().all()
+            assert len(instance_after) == 1
+            assert isinstance(instance_after := instance_after[0], self.model_orm)
+            self.compare_obj_before_after(instance, instance_after)
+
+    def test_single_unexistent_instance(self, session: Session, models_orm):
+        instances_before = deepcopy(models_orm)
+
+        for pk in self.primary_keys:
+
+            # Prepare data.
+            new_model_dto = self.factory.build(factory_use_construct=True)
+            new_data = self.get_orm_data_from_dto(new_model_dto)
+
+            # Make an attempt to update the instance with an unexistent pk.
+            unexistent_pk = self.get_unexistent_numeric_value(
+                field=pk,
+                objects=models_orm,
+            )
+            statement = self.manager.update(
+                where={pk: unexistent_pk},
+                set_value=new_data,
+            )
+            instance = session.scalar(statement)
+            session.commit()
+            assert instance is None
+
+            # Ensure that the objects in the DB not been changed.
+            statement = self.manager.filter()
+            instances_after = session.scalars(statement).unique().all()
+            self.compare_list_before_after(instances_before, instances_after)
+
+    def test_single_without_new_values(self, session: Session, models_orm):
+        instance_to_update = choice(models_orm)
+
+        for pk in self.primary_keys:
+            pk_to_update = getattr(instance_to_update, pk)
+            with pytest.raises(ValueError) as error:
+                self.manager.update(where={pk: pk_to_update}, set_value=dict())
+            msg = UPDATE_WITH_EMPTY_BODY_MSG.format(values=dict())
+            assert str(error.value) == msg
+            session.rollback()

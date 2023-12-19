@@ -23,6 +23,11 @@ from src.banking_app.models.base import Base
 from src.banking_app.utils.kwargs_parser import KwargsParser
 
 
+UPDATE_WITH_EMPTY_BODY_MSG = (
+    'Without new values, updating can\'t proceed, new values = {values}.'
+)
+
+
 class AbstractManager(ABC):
 
     @property
@@ -95,9 +100,7 @@ class UpdateManager(AlterManager):
             set_value: dict[str, Any],
     ) -> ReturningUpdate:
         if len(set_value) == 0:
-            raise ValueError(
-                f'Without new values, updating can\'t proceed, {set_value=}.'
-            )
+            raise ValueError(UPDATE_WITH_EMPTY_BODY_MSG.format(values=set_value))
 
         conditions = KwargsParser().parse_kwargs(
             module_name=__name__,

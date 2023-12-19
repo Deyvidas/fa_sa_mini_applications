@@ -12,6 +12,7 @@ from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
 from src.banking_app.schemas.status import BaseStatusModel
 from src.banking_app.tests.helpers import BaseTestHelper
+from src.banking_app.tests.test_status.factory import StatusFactory
 
 
 StatusData: TypeAlias = Status | BaseStatusModel | dict[str, Any]
@@ -21,6 +22,7 @@ manager = StatusManager()
 @pytest.mark.usefixtures('create_and_drop_tables')
 class StatusTestHelper(BaseTestHelper):
     client = TestClient(banking_app)
+    factory: StatusFactory = StatusFactory()
     manager: StatusManager = manager
     model_dto: Type[BaseStatusModel] = BaseStatusModel
     model_orm: Type[Status] = Status

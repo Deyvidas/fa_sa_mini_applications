@@ -1,5 +1,6 @@
 from abc import ABC
 from fastapi.testclient import TestClient
+from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import BaseModel
 from random import randint
 
@@ -14,6 +15,7 @@ from src.banking_app.models.base import Base
 
 class BaseTestHelper(ABC):
     client: TestClient
+    factory: ModelFactory
     manager: BaseManager
     model_dto: Type[BaseModel]
     model_orm: Type[Base]

@@ -12,6 +12,7 @@ from src.banking_app.managers.client import ClientManager
 from src.banking_app.models.client import Client
 from src.banking_app.schemas.client import BaseClientModel
 from src.banking_app.tests.helpers import BaseTestHelper
+from src.banking_app.tests.test_client.factory import ClientFactory
 
 
 ClientData: TypeAlias = Client | BaseClientModel | dict[str, Any]
@@ -21,6 +22,7 @@ manager = ClientManager()
 @pytest.mark.usefixtures('create_and_drop_tables')
 class ClientTestHelper(BaseTestHelper):
     client = TestClient(banking_app)
+    factory: ClientFactory = ClientFactory()
     manager: ClientManager = manager
     model_dto: Type[BaseClientModel] = BaseClientModel
     model_orm: Type[Client] = Client

@@ -1,4 +1,3 @@
-from polyfactory.decorators import post_generated
 from polyfactory.factories.pydantic_factory import ModelFactory
 from polyfactory.fields import Use
 
@@ -23,11 +22,6 @@ class StatusFactoryHelper:
 class StatusFactory(ModelFactory):
     __model__ = BaseStatusModel
     status = Use(StatusFactoryHelper.status)
-
-    @post_generated
-    @classmethod
-    def description(cls, status: int) -> str:
-        return f'Test description {status}'
 
 
 factory_statuses_dto: Sequence[BaseStatusModel] = StatusFactory.batch(
