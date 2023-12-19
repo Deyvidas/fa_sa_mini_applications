@@ -7,6 +7,7 @@ from random import choice
 from random import sample
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import make_transient
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import select
 
@@ -220,7 +221,7 @@ class BaseTestUpdate(BaseTestHelper):
             new_model_dto = self.factory.build(factory_use_construct=True)
             new_data = self.get_orm_data_from_dto(new_model_dto)
 
-            # Make an attempt to update the instance with an unexistent pk.
+            # Make an attempt to update the unexistent instance.
             unexistent_pk = self.get_unexistent_numeric_value(
                 field=pk,
                 objects=models_orm,
@@ -241,10 +242,69 @@ class BaseTestUpdate(BaseTestHelper):
     def test_single_without_new_values(self, session: Session, models_orm):
         instance_to_update = choice(models_orm)
 
-        for pk in self.primary_keys:
+        for pk in (pks := self.primary_keys):
             pk_to_update = getattr(instance_to_update, pk)
             with pytest.raises(ValueError) as error:
                 self.manager.update(where={pk: pk_to_update}, set_value=dict())
             msg = UPDATE_WITH_EMPTY_BODY_MSG.format(values=dict())
             assert str(error.value) == msg
+
+            if len(pks) == 1:
+                return
             session.rollback()
+
+
+class BaseTestDelete(BaseTestHelper):
+
+    def test_single_instance_by_pk(self, session: Session, models_orm):
+        count_before = len(models_orm)
+
+        for pk in (pks := self.primary_keys):
+            instance_to_delete = choice(models_orm)
+
+            # The deleted instance must be returned after delete.
+            statement = self.manager.delete(**{pk: getattr(instance_to_delete, pk)})
+            instance = session.scalars(statement).unique().all()
+            session.commit()
+            assert len(instance) == 1
+            assert isinstance(instance := instance[0], self.model_orm)
+            self.compare_obj_before_after(instance_to_delete, instance)
+
+            # Ensure that the instance is deleted from the DB.
+            statement = self.manager.filter()
+            instances_after = session.scalars(statement).unique().all()
+            assert len(instances_after) == (count_before - 1)
+
+            found = list(filter(
+                lambda i: getattr(i, pk) == getattr(instance_to_delete, pk),
+                instances_after
+            ))
+            assert len(found) == 0
+
+            # Return deleted instance in the DB if have more than 1 primary key.
+            if len(pks) == 1:
+                return
+
+            session.reset()
+            make_transient(instance_to_delete)
+            session.add(instance_to_delete)
+            session.commit()
+
+    def test_single_unexistent_instance(self, session: Session, models_orm):
+        instances_before = deepcopy(models_orm)
+
+        # Make an attempt to delete the unexistent instance.
+        for pk in self.primary_keys:
+            unexistent_pk = self.get_unexistent_numeric_value(
+                field=pk,
+                objects=models_orm,
+            )
+            statement = self.manager.delete(**{pk: unexistent_pk})
+            instance = session.scalar(statement)
+            session.commit()
+            assert instance is None
+
+            # Ensure that the instances in the DB not been changed.
+            statement = self.manager.filter()
+            instances_after = session.scalars(statement).unique().all()
+            self.compare_list_before_after(instances_before, instances_after)
