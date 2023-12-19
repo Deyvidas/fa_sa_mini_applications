@@ -3,15 +3,11 @@ import pytest
 from copy import deepcopy
 from random import choice
 from pydantic import TypeAdapter
-
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import select
-
 from typing import Sequence
 from sqlalchemy.orm.session import Session
 
 from src.banking_app.models.client import Client
-from src.banking_app.schemas.client import BaseClientModel
+from src.banking_app.tests.general.managers import BaseTestBulkCreate
 from src.banking_app.tests.general.managers import BaseTestCreate
 from src.banking_app.tests.test_client.conftest import ClientTestHelper
 from src.banking_app.tests.test_client.factory import ClientFactory
@@ -23,68 +19,8 @@ class TestCreate(ClientTestHelper, BaseTestCreate):
 
 
 @pytest.mark.run(order=1.01_01)
-class TestBulkCreate(ClientTestHelper):
-
-    def test_base(
-            self,
-            session: Session,
-            clients_dto: Sequence[BaseClientModel],
-    ):
-        list_kwargs = [self.get_orm_data_from_dto(c) for c in clients_dto]
-
-        # Test if bulk_create returns a list of created instances.
-        statement = self.manager.bulk_create(list_kwargs)
-        instances = session.scalars(statement).unique().all()
-        self.compare_list_before_after(clients_dto, instances)
-
-        # Check that objects have been created in the DB.
-        statement = select(self.model_orm)
-        instances_after = session.scalars(statement).unique().all()
-        self.compare_list_before_after(instances, instances_after)
-
-    def test_default_assignment(
-            self,
-            session: Session,
-            clients_dto: Sequence[BaseClientModel],
-    ):
-        list_kwargs = [self.get_orm_data_from_dto(c) for c in clients_dto]
-        # Remove all field which have default value in ORM model.
-        for field in self.default_values.keys():
-            [k.pop(field) for k in list_kwargs]
-
-        # Ensure that creation can proceed without fields with default values.
-        statement = self.manager.bulk_create(list_kwargs)
-        instances = session.scalars(statement).unique().all()
-        [k.update(self.default_values) for k in list_kwargs]
-        self.compare_list_before_after(list_kwargs, instances)
-
-    def test_with_some_not_unique(
-            self,
-            session: Session,
-            clients_dto: Sequence[BaseClientModel],
-    ):
-        half = int(len(clients_dto) / 2)
-
-        # Saving the first part of having clients.
-        first_half = [self.get_orm_data_from_dto(c) for c in clients_dto[:half]]
-        statement = self.manager.bulk_create(first_half)
-        instances = session.scalars(statement).unique().all()
-        session.commit()
-
-        # Try to create new clients that are mixed with already existing clients.
-        second_half = [self.get_orm_data_from_dto(c) for c in clients_dto[half:]]
-        second_half += [first_half[0], first_half[-1]]
-        statement = self.manager.bulk_create(second_half)
-        with pytest.raises(IntegrityError) as error:
-            session.execute(statement)
-        kwargs = self.manager.parse_integrity_error(error.value)
-        assert kwargs == {'client_id': first_half[0]['client_id']}
-
-        # Check that there are no changes in the DB.
-        session.rollback()
-        statement = select(self.model_orm)
-        instances_after = session.scalars(statement).unique().all()
-        self.compare_list_before_after(instances, instances_after)
+class TestBulkCreate(ClientTestHelper, BaseTestBulkCreate):
+    ...
 
 
 @pytest.mark.run(order=1.01_02)

@@ -3,15 +3,12 @@ import pytest
 from copy import deepcopy
 from pydantic import TypeAdapter
 from random import choice
-
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.session import Session
-from sqlalchemy.sql.expression import select
 
 from typing import Sequence
 
 from src.banking_app.models.status import Status
-from src.banking_app.schemas.status import BaseStatusModel
+from src.banking_app.tests.general.managers import BaseTestBulkCreate
 from src.banking_app.tests.general.managers import BaseTestCreate
 from src.banking_app.tests.test_status.factory import StatusFactory
 from src.banking_app.tests.test_status.helpers import StatusTestHelper
@@ -23,53 +20,8 @@ class TestCreate(StatusTestHelper, BaseTestCreate):
 
 
 @pytest.mark.run(order=1.00_01)
-class TestBulkCreate(StatusTestHelper):
-
-    def test_base(
-            self,
-            session: Session,
-            statuses_dto: Sequence[BaseStatusModel],
-    ):
-        list_kwargs = [self.get_orm_data_from_dto(s) for s in statuses_dto]
-
-        # Test if bulk_create returns a list of created instances.
-        statement = self.manager.bulk_create(list_kwargs)
-        instances = session.scalars(statement).unique().all()
-        session.commit()
-        self.compare_list_before_after(list_kwargs, instances)
-
-        # Check that objects have been created in the DB.
-        statement = select(self.model_orm)
-        instances_after = session.scalars(statement).unique().all()
-        self.compare_list_before_after(list_kwargs, instances_after)
-
-    def test_with_some_not_unique(
-            self,
-            session: Session,
-            statuses_dto: Sequence[BaseStatusModel]
-    ):
-        half = int(len(statuses_dto) / 2)
-
-        # Saving the first part of having statuses.
-        first_half = [self.get_orm_data_from_dto(s) for s in statuses_dto[:half]]
-        statement = self.manager.bulk_create(first_half)
-        instances = session.scalars(statement).unique().all()
-        session.commit()
-
-        # Try to create new statuses that are mixed with already existing statuses.
-        second_half = [self.get_orm_data_from_dto(s) for s in statuses_dto[half:]]
-        second_half += [first_half[0], first_half[-1]]
-        statement = self.manager.bulk_create(second_half)
-        with pytest.raises(IntegrityError) as error:
-            session.execute(statement)
-        kwargs = self.manager.parse_integrity_error(error.value)
-        assert kwargs == {'status': first_half[0]['status']}
-
-        # Check that there are no changes in the DB.
-        session.rollback()
-        statement = select(self.model_orm)
-        instances_after = session.scalars(statement).unique().all()
-        self.compare_list_before_after(instances, instances_after)
+class TestBulkCreate(StatusTestHelper, BaseTestBulkCreate):
+    ...
 
 
 @pytest.mark.run(order=1.00_02)

@@ -1,6 +1,7 @@
 import pytest
 
 from random import choice
+from random import sample
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.session import Session
@@ -75,3 +76,63 @@ class BaseTestCreate(BaseTestHelper):
         assert len(instance_after) == 1
         assert isinstance(instance_after := instance_after[0], self.model_orm)
         self.compare_obj_before_after(instance, instance_after)
+
+
+class BaseTestBulkCreate(BaseTestHelper):
+
+    def test_base(self, session: Session, models_dto):
+        list_kwargs = [self.get_orm_data_from_dto(m) for m in models_dto]
+
+        # Test if bulk_create returns a list of created instances.
+        statement = self.manager.bulk_create(list_kwargs)
+        instances = session.scalars(statement).unique().all()
+        session.commit()
+        self.compare_list_before_after(list_kwargs, instances)
+
+        # Check that objects have been created in the DB.
+        statement = select(self.model_orm)
+        instances_after = session.scalars(statement).unique().all()
+        self.compare_list_before_after(instances, instances_after)
+
+    def test_with_some_not_unique(self, session: Session, models_dto):
+        half = int(len(models_dto) / 2)
+
+        # Saving the first part of having models.
+        first_half = [self.get_orm_data_from_dto(m) for m in models_dto[:half]]
+        statement = self.manager.bulk_create(first_half)
+        instances_f_h = session.scalars(statement).unique().all()
+        session.commit()
+
+        # Try to create new instances that are mixed with already existing instances.
+        second_half = [self.get_orm_data_from_dto(m) for m in models_dto[half:]]
+        second_half += (existent := sample(first_half, 2))
+        statement = self.manager.bulk_create(second_half)
+        with pytest.raises(IntegrityError) as error:
+            session.scalars(statement).unique().all()
+        kwargs = self.manager.parse_integrity_error(error.value)
+        # IntegrityError raised for first not unique.
+        assert kwargs == {pk: existent[0][pk] for pk in self.primary_keys}
+
+        # Check that there are no changes in the DB.
+        session.rollback()
+        statement = select(self.model_orm)
+        instances_after = session.scalars(statement).unique().all()
+        self.compare_list_before_after(instances_f_h, instances_after)
+
+    def test_default_assignment(self, session: Session, models_dto):
+        exclude = set(self.default_values.keys())
+        list_kwargs = [self.get_orm_data_from_dto(m, exclude=exclude) for m in models_dto]
+
+        # Ensure that creation can proceed without fields with default values.
+        statement = self.manager.bulk_create(list_kwargs)
+        instances = session.scalars(statement).unique().all()
+        session.commit()
+
+        # Insert default values into the data for comparison.
+        [k.update(self.default_values) for k in list_kwargs]
+        self.compare_list_before_after(list_kwargs, instances)
+
+        # Check that the object has been created in the DB.
+        statement = select(self.model_orm)
+        instances_after = session.scalars(statement).unique().all()
+        self.compare_list_before_after(instances, instances_after)
