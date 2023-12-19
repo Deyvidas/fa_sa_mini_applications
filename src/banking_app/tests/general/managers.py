@@ -136,3 +136,32 @@ class BaseTestBulkCreate(BaseTestHelper):
         statement = select(self.model_orm)
         instances_after = session.scalars(statement).unique().all()
         self.compare_list_before_after(instances, instances_after)
+
+
+class BaseTestFilter(BaseTestHelper):
+
+    def test_without_arguments(self, session: Session, models_orm):
+        # Check that filtering without parameters returns all objects from the DB.
+        statement = self.manager.filter()
+        instances = session.scalars(statement).unique().all()
+        self.compare_list_before_after(models_orm, instances)
+
+    def test_by_primary_key(self, session: Session, models_orm):
+        # Filtering by existent primary keys.
+        existent_instance = choice(models_orm)
+        for pk in self.primary_keys:
+            statement = self.manager.filter(**{pk: getattr(existent_instance, pk)})
+            instance = session.scalars(statement).unique().all()
+            assert len(instance) == 1
+            assert isinstance(instance := instance[0], self.model_orm)
+            self.compare_obj_before_after(existent_instance, instance)
+
+        # Filtering by unexistent primary keys.
+        for pk in self.primary_keys:
+            unexistent_pk = self.get_unexistent_numeric_value(
+                field=pk,
+                objects=models_orm,
+            )
+            statement = self.manager.filter(**{pk: unexistent_pk})
+            instance = session.scalar(statement)
+            assert instance is None

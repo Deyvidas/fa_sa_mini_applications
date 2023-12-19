@@ -10,6 +10,7 @@ from typing import Sequence
 from src.banking_app.models.status import Status
 from src.banking_app.tests.general.managers import BaseTestBulkCreate
 from src.banking_app.tests.general.managers import BaseTestCreate
+from src.banking_app.tests.general.managers import BaseTestFilter
 from src.banking_app.tests.test_status.factory import StatusFactory
 from src.banking_app.tests.test_status.helpers import StatusTestHelper
 
@@ -25,36 +26,8 @@ class TestBulkCreate(StatusTestHelper, BaseTestBulkCreate):
 
 
 @pytest.mark.run(order=1.00_02)
-class TestFilter(StatusTestHelper):
-
-    def test_without_arguments(
-            self,
-            session: Session,
-            statuses_orm: Sequence[Status],
-    ):
-        # Check that filtering without parameters returns all objects from the DB.
-        statement = self.manager.filter()
-        instances = session.scalars(statement).unique().all()
-        self.compare_list_before_after(statuses_orm, instances)
-
-    def test_by_status_number(
-            self,
-            session: Session,
-            statuses_orm: Sequence[Status]
-    ):
-        # Filtering by existent status number.
-        existent_status = choice(statuses_orm)
-        statement = self.manager.filter(status=existent_status.status)
-        instance = session.scalars(statement).unique().all()
-        assert len(instance) == 1
-        assert isinstance(instance := instance[0], self.model_orm)
-        self.compare_obj_before_after(existent_status, instance)
-
-        # Filtering by unexistent status number.
-        unexist_status = self.get_unexistent_status_num(statuses_orm)
-        statement = self.manager.filter(status=unexist_status)
-        instance = session.scalar(statement)
-        assert instance is None
+class TestFilter(StatusTestHelper, BaseTestFilter):
+    ...
 
 
 @pytest.mark.run(order=1.00_03)

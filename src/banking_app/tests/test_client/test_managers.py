@@ -9,6 +9,7 @@ from sqlalchemy.orm.session import Session
 from src.banking_app.models.client import Client
 from src.banking_app.tests.general.managers import BaseTestBulkCreate
 from src.banking_app.tests.general.managers import BaseTestCreate
+from src.banking_app.tests.general.managers import BaseTestFilter
 from src.banking_app.tests.test_client.conftest import ClientTestHelper
 from src.banking_app.tests.test_client.factory import ClientFactory
 
@@ -24,36 +25,8 @@ class TestBulkCreate(ClientTestHelper, BaseTestBulkCreate):
 
 
 @pytest.mark.run(order=1.01_02)
-class TestFilter(ClientTestHelper):
-
-    def test_without_arguments(
-            self,
-            session: Session,
-            clients_orm: Sequence[Client],
-    ):
-        # Check that filtering without parameters returns all objects from the DB.
-        statement = self.manager.filter()
-        instances = session.scalars(statement).unique().all()
-        self.compare_list_before_after(clients_orm, instances)
-
-    def test_by_client_id(
-            self,
-            session: Session,
-            clients_orm: Sequence[Client]
-    ):
-        # Filtering by existent client_id.
-        existent_client = choice(clients_orm)
-        statement = self.manager.filter(client_id=existent_client.client_id)
-        instance = session.scalars(statement).unique().all()
-        assert len(instance) == 1
-        assert isinstance(instance := instance[0], Client)
-        self.compare_obj_before_after(existent_client, instance)
-
-        # Filtering by unexistent client_id.
-        unexist_client_id = self.get_unexistent_client_id(clients_orm)
-        statement = self.manager.filter(client_id=unexist_client_id)
-        instance = session.scalar(statement)
-        assert instance is None
+class TestFilter(ClientTestHelper, BaseTestFilter):
+    ...
 
 
 @pytest.mark.run(order=1.01_03)
