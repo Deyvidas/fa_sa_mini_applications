@@ -70,7 +70,11 @@ class BaseTestCreate(BaseTestHelper):
 
         # Insert default values into the data for comparison.
         model_dto = model_dto.model_copy(update=self.default_values)
-        self.compare_obj_before_after(model_dto, instance, exclude=list(self.related_fields))
+        self.compare_obj_before_after(
+            model_dto,
+            instance,
+            exclude=list(self.related_fields),  # Related fields aren't updated in schemas.
+        )
 
         # Check that the object has been created in the DB.
         statement = select(self.model_orm)
@@ -132,7 +136,11 @@ class BaseTestBulkCreate(BaseTestHelper):
 
         # Insert default values into the data for comparison.
         models_dto = [m.copy(update=self.default_values) for m in models_dto]
-        self.compare_list_before_after(models_dto, instances, exclude=list(self.related_fields))
+        self.compare_list_before_after(
+            models_dto,
+            instances,
+            exclude=list(self.related_fields),  # Related fields aren't updated in schemas.
+        )
 
         # Check that the object has been created in the DB.
         statement = select(self.model_orm)
@@ -149,16 +157,15 @@ class BaseTestFilter(BaseTestHelper):
         self.compare_list_before_after(models_orm, instances)
 
     def test_by_primary_key(self, session: Session, models_orm):
-        # Filtering by existent primary keys.
-        existent_instance = choice(models_orm)
         for pk in self.primary_keys:
-            statement = self.manager.filter(**{pk: getattr(existent_instance, pk)})
+            instance_to_get = choice(models_orm)
+            statement = self.manager.filter(**{pk: getattr(instance_to_get, pk)})
             instance = session.scalars(statement).unique().all()
             assert len(instance) == 1
             assert isinstance(instance := instance[0], self.model_orm)
-            self.compare_obj_before_after(existent_instance, instance)
+            self.compare_obj_before_after(instance_to_get, instance)
 
-        # Filtering by unexistent primary keys.
+    def test_by_unexistent_primary_key(self, session: Session, models_orm):
         for pk in self.primary_keys:
             unexistent_pk = self.get_unexistent_numeric_value(
                 field=pk,
@@ -183,7 +190,6 @@ class BaseTestUpdate(BaseTestHelper):
             # Check if the generated dto model has different values from the instance values.
             while to_update_dto == new_model_dto:
                 to_update_dto = get_dto_from_orm(choice(models_orm))
-            # Exclude current pk and for other primary keys set value equal to instance_to_update.
             new_model_dto = new_model_dto.model_copy(
                 update={f: getattr(to_update_dto, f) for f in pks - {pk}}
             )
@@ -282,13 +288,11 @@ class BaseTestDelete(BaseTestHelper):
             assert len(found) == 0
 
             # Return deleted instance in the DB if have more than 1 primary key.
-            if len(pks) == 1:
-                return
-
-            session.reset()
-            make_transient(instance_to_delete)
-            session.add(instance_to_delete)
-            session.commit()
+            if len(pks) > 1:
+                session.reset()
+                make_transient(instance_to_delete)
+                session.add(instance_to_delete)
+                session.commit()
 
     def test_single_unexistent_instance(self, session: Session, models_orm):
 
