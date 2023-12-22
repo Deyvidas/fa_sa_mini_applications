@@ -8,6 +8,7 @@ from pydantic import TypeAdapter
 from random import randint
 
 from typing import Any
+from typing import Callable
 from typing import Sequence
 from typing import Type
 from typing import TypeAlias
@@ -55,12 +56,12 @@ class BaseTestHelper(ABC):
         return defaults
 
     @property
-    def ManyAdapter(self) -> TypeAdapter:
-        return TypeAdapter(list[self.model_dto])
+    def get_dto_from_single(self) -> Callable:
+        return TypeAdapter(self.model_dto).validate_python
 
     @property
-    def SingleAdapter(self) -> TypeAdapter:
-        return TypeAdapter(self.model_dto)
+    def get_dto_from_many(self) -> Callable:
+        return TypeAdapter(list[self.model_dto]).validate_python
 
     def not_found_msg(self, **kwargs) -> str:
         details = ', '.join([f'{k}={v}' for k, v in kwargs.items()])
@@ -83,7 +84,7 @@ class BaseTestHelper(ABC):
             *,
             exclude: set[str] | None = None,
     ) -> dict[str, Any]:
-        return self.SingleAdapter.dump_python(
+        return TypeAdapter(self.model_dto).dump_python(
             dto_model,
             include=self.fields,
             exclude=exclude,
@@ -97,7 +98,7 @@ class BaseTestHelper(ABC):
     ) -> int:
         assert len(objects) > 0
         if all(map(lambda o: not isinstance(o, self.model_dto), objects)):
-            objects = self.ManyAdapter.validate_python(objects)
+            objects = self.get_dto_from_many(objects)
 
         existent_numbers = [getattr(o, field) for o in objects]
         while True:
@@ -132,9 +133,9 @@ class BaseTestHelper(ABC):
 
         # Convert dict into an instance to use getattr.
         if not isinstance(before[0], self.model_dto):
-            before = self.ManyAdapter.validate_python(before)
+            before = self.get_dto_from_many(before)
         if not isinstance(after[0], self.model_dto):
-            after = self.ManyAdapter.validate_python(after)
+            after = self.get_dto_from_many(after)
 
         fields = self._get_final_field_set(exclude, fields)
         # By default we sort by primary key, but it can be excluded.

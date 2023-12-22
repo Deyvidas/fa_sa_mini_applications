@@ -179,17 +179,15 @@ class BaseTestFilter(BaseTestHelper):
 class BaseTestUpdate(BaseTestHelper):
 
     def test_single_instance_by_pk(self, session: Session, models_orm):
-        get_dto_from_orm = self.SingleAdapter.validate_python
-
         for pk in (pks := self.primary_keys):
-            to_update_dto = get_dto_from_orm(choice(models_orm))
+            to_update_dto = self.get_dto_from_single(choice(models_orm))
 
             # Prepare data.
             new_model_dto = self.factory.build(factory_use_construct=True)
             assert type(new_model_dto) is self.model_dto
             # Check if the generated dto model has different values from the instance values.
             while to_update_dto == new_model_dto:
-                to_update_dto = get_dto_from_orm(choice(models_orm))
+                to_update_dto = self.get_dto_from_single(choice(models_orm))
             new_model_dto = new_model_dto.model_copy(
                 update={f: getattr(to_update_dto, f) for f in pks - {pk}}
             )
@@ -220,7 +218,7 @@ class BaseTestUpdate(BaseTestHelper):
             self.compare_obj_before_after(instance, instance_after)
 
     def test_single_unexistent_instance(self, session: Session, models_orm):
-        models_dto_before = self.ManyAdapter.validate_python(models_orm)
+        models_dto_before = self.get_dto_from_many(models_orm)
 
         for pk in self.primary_keys:
 
