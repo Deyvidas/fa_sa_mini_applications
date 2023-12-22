@@ -1,63 +1,68 @@
+from __future__ import annotations
+
 from datetime import datetime
-
 from decimal import Decimal
-
 from pydantic import Field
 
+from typing import Annotated
+from typing import TYPE_CHECKING
+
 from src.banking_app.conf import settings
-from src.banking_app.schemas.base import Base
-from src.banking_app.schemas.client import ClientRetrieve
+from src.banking_app.schemas import Base
 from src.banking_app.types.general import MoneyAmount
 
+if TYPE_CHECKING:
+    from src.banking_app.schemas import ClientRetrieve
 
-class RowIdField(Base):
-    row_id: int = Field(
+
+_row_id = Annotated[
+    int, Field(
         examples=[1234],
     )
-
-
-class ActualFlagField(Base):
-    actual_flag: bool
-
-
-class ProcessedDateTimeField(Base):
-    processed_datetime: datetime = Field(
-        examples=[settings.get_datetime_now()],
-    )
-
-
-class ClientAsModelField(Base):
-    client: ClientRetrieve
-
-
-class ClientAsIntegerField(Base):
-    client_id: int = Field(
-        gt=0,
-        examples=[24],
-    )
-
-
-class CurrAmountField(Base):
-    current_amount: MoneyAmount = Field(
+]
+_current_amount = Annotated[
+    MoneyAmount, Field(
         ge=0,
         max_digits=10,
         decimal_places=2,
         examples=[Decimal(2) / Decimal(3)],  # 0.66(6) -> 0.67
     )
+]
+_actual_flag = Annotated[
+    bool, Field(
+        examples=[False],
+    )
+]
+_processed_datetime = Annotated[
+    datetime, Field(
+        examples=[settings.get_datetime_now()],
+    )
+]
+_client_id = Annotated[
+    int, Field(
+        gt=0,
+        examples=[24],
+    )
+]
 
 
-class BalanceRetrieve(
-        ClientAsModelField,
-        ProcessedDateTimeField,
-        ActualFlagField,
-        CurrAmountField,
-        RowIdField,
-):
-    ...
+class BaseBalanceModel(Base):
+    row_id: _row_id
+    current_amount: _current_amount
+    actual_flag: _actual_flag
+    processed_datetime: _processed_datetime
+    client_id: _client_id
+
+    client: ClientRetrieve
 
 
-class BalanceCreate(
-        CurrAmountField,
-        ClientAsIntegerField,
-):
-    ...
+class BalanceRetrieve(BaseBalanceModel):
+    client: ClientRetrieve = Field(default=None, exclude=True)
+
+
+class BalanceCreate(BaseBalanceModel):
+    row_id: _row_id = Field(default=None, exclude=True)
+    actual_flag: _actual_flag = Field(default=None, exclude=True)
+    processed_datetime: _processed_datetime = Field(default=None, exclude=True)
+
+    client: ClientRetrieve = Field(default=None, exclude=True)

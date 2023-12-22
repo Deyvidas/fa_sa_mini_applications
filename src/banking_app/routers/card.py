@@ -12,7 +12,7 @@ from typing import Sequence
 
 from src.banking_app.connection import activate_session
 from src.banking_app.models.card import Card
-from src.banking_app.schemas.card import CardDTO
+from src.banking_app.schemas import CardDTO
 
 
 router = APIRouter(

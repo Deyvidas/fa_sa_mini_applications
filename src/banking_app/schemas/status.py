@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 from typing import Annotated
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 
-from src.banking_app.schemas.base import Base
+from src.banking_app.schemas import Base
+
+if TYPE_CHECKING:
+    from src.banking_app.schemas import BaseClientModel
 
 
 _status = Annotated[
@@ -25,7 +31,11 @@ class BaseStatusModel(Base):
     description: _description
 
 
-class StatusRetrieve(BaseStatusModel):
+class StatusModelWithRelations(BaseStatusModel):
+    clients: list[BaseClientModel]
+
+
+class StatusRetrieve(StatusModelWithRelations):
     ...
 
 
@@ -34,9 +44,9 @@ class StatusCreate(BaseStatusModel):
 
 
 class StatusFullUpdate(BaseStatusModel):
-    status: _status = Field(default=None, exclude=True)
+    ...
 
 
 class StatusPartialUpdate(BaseStatusModel):
-    status: _status = Field(default=None, exclude=True)
+    status: _status = Field(default=None)
     description: _description = Field(default=None)

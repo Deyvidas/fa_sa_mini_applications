@@ -7,12 +7,13 @@ from sqlalchemy.orm.session import Session
 from typing import Sequence
 
 from src.banking_app.models.status import Status
-from src.banking_app.schemas.status import BaseStatusModel
+from src.banking_app.schemas import BaseStatusModel
 from src.banking_app.tests.test_status.helpers import StatusTestHelper
+from src.banking_app.tests.general.endpoints import BaseTestRetrieve
 
 
 @pytest.mark.run(order=2.00_00)
-class TestRetrieve(StatusTestHelper):
+class TestRetrieve(StatusTestHelper, BaseTestRetrieve):
 
     def test_get_all_statuses(self, statuses_orm: Sequence[Status]):
         response = self.client.get(f'{self.prefix}/list')

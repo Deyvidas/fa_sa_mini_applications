@@ -13,10 +13,10 @@ from typing import TypeAlias
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.status import StatusManager
 from src.banking_app.models.status import Status
-from src.banking_app.schemas.status import StatusCreate
-from src.banking_app.schemas.status import StatusFullUpdate
-from src.banking_app.schemas.status import StatusPartialUpdate
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas import StatusCreate
+from src.banking_app.schemas import StatusFullUpdate
+from src.banking_app.schemas import StatusPartialUpdate
+from src.banking_app.schemas import StatusRetrieve
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import EmptyBodyOnPatchMessage
 from src.banking_app.utils.exceptions import ErrorType

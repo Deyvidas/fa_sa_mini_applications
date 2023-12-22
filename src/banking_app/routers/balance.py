@@ -13,8 +13,8 @@ from typing import Sequence
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.balance import BalanceManager
 from src.banking_app.models.balance import Balance
-from src.banking_app.schemas.balance import BalanceCreate
-from src.banking_app.schemas.balance import BalanceRetrieve
+from src.banking_app.schemas import BalanceCreate
+from src.banking_app.schemas import BalanceRetrieve
 from src.banking_app.types.general import MoneyAmount
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import ErrorType

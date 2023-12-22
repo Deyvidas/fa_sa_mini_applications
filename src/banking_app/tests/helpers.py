@@ -1,7 +1,10 @@
 from abc import ABC
 from fastapi.testclient import TestClient
 from polyfactory.factories.pydantic_factory import ModelFactory
+
 from pydantic import BaseModel
+from pydantic import TypeAdapter
+
 from random import randint
 
 from typing import Any
@@ -24,14 +27,19 @@ class BaseTestHelper(ABC):
     DataType: TypeAlias = Base | BaseModel | dict[str, Any]
 
     @property
-    def fields(self) -> Sequence[str]:
-        fields = self.model_orm.__table__.columns._all_columns
-        return [field.name for field in fields]
+    def fields(self) -> set[str]:
+        fields = self.model_orm.__mapper__.column_attrs
+        return set(f.key for f in fields)
+
+    @property
+    def related_fields(self) -> set[str]:
+        related_fields = self.model_orm.__mapper__.relationships
+        return set(rf.key for rf in related_fields)
 
     @property
     def primary_keys(self) -> set[str]:
-        fields = [getattr(self.model_orm, f) for f in self.fields]
-        return set(f.name for f in fields if f.primary_key is True)
+        primary_keys = self.model_orm.__mapper__.primary_key
+        return set(f.key for f in primary_keys)
 
     @property
     def default_values(self) -> dict[str, Any]:
@@ -45,6 +53,14 @@ class BaseTestHelper(ABC):
                 value = value(None)
             defaults[field] = value
         return defaults
+
+    @property
+    def ManyAdapter(self) -> TypeAdapter:
+        return TypeAdapter(list[self.model_dto])
+
+    @property
+    def SingleAdapter(self) -> TypeAdapter:
+        return TypeAdapter(self.model_dto)
 
     def not_found_msg(self, **kwargs) -> str:
         details = ', '.join([f'{k}={v}' for k, v in kwargs.items()])
@@ -67,10 +83,11 @@ class BaseTestHelper(ABC):
             *,
             exclude: set[str] | None = None,
     ) -> dict[str, Any]:
-        _exclude = set(self.model_dto.model_fields.keys()) - set(self.fields)
-        if exclude is not None:
-            _exclude = _exclude.union(exclude)
-        return dto_model.model_dump(exclude=_exclude)
+        return self.SingleAdapter.dump_python(
+            dto_model,
+            include=self.fields,
+            exclude=exclude,
+        )
 
     def get_unexistent_numeric_value(
             self,
@@ -79,8 +96,8 @@ class BaseTestHelper(ABC):
             objects: Sequence[DataType],
     ) -> int:
         assert len(objects) > 0
-        if all(map(lambda o: isinstance(o, dict), objects)):
-            objects = [self.model_orm(**kwargs) for kwargs in objects]          # type: ignore
+        if all(map(lambda o: not isinstance(o, self.model_dto), objects)):
+            objects = self.ManyAdapter.validate_python(objects)
 
         existent_numbers = [getattr(o, field) for o in objects]
         while True:
@@ -114,10 +131,10 @@ class BaseTestHelper(ABC):
         assert len(before) == len(after) and len(before) > 0
 
         # Convert dict into an instance to use getattr.
-        if isinstance(before[0], dict):
-            before = [self.model_orm(**kwargs) for kwargs in before]            # type: ignore
-        if isinstance(after[0], dict):
-            after = [self.model_orm(**kwargs) for kwargs in after]              # type: ignore
+        if not isinstance(before[0], self.model_dto):
+            before = self.ManyAdapter.validate_python(before)
+        if not isinstance(after[0], self.model_dto):
+            after = self.ManyAdapter.validate_python(after)
 
         fields = self._get_final_field_set(exclude, fields)
         # By default we sort by primary key, but it can be excluded.
@@ -131,14 +148,16 @@ class BaseTestHelper(ABC):
 
         for b, a in zip(before, after):
             for field in fields:
-                assert getattr(a, field) == getattr(b, field)
+                assert (af := getattr(a, field)) == (be := getattr(b, field)), (
+                    f'after.{field}={af} != before.{field}={be}'
+                )
 
     def _get_final_field_set[S: Sequence[str]](
             self,
             exclude: S | None,
             fields: S | None,
     ) -> S:
-        _fields = self.fields
+        _fields = self.fields | self.related_fields
         if fields is not None and len(fields) > 0:
             _fields = fields
         if exclude is not None and len(exclude) > 0:

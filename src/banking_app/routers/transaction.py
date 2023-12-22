@@ -12,8 +12,8 @@ from typing import TypeAlias
 
 from src.banking_app.connection import activate_session
 from src.banking_app.models.transaction import Transaction
-from src.banking_app.schemas.transaction import TransactionGetDTO
-from src.banking_app.schemas.transaction import TransactionPostDTO
+from src.banking_app.schemas import TransactionGetDTO
+from src.banking_app.schemas import TransactionPostDTO
 
 
 router = APIRouter(

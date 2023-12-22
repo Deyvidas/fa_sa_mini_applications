@@ -12,8 +12,8 @@ from src.banking_app.conf import NotSpecifiedParam
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.client import ClientManager
 from src.banking_app.models.client import Client
-from src.banking_app.schemas.client import ClientCreate
-from src.banking_app.schemas.client import ClientRetrieve
+from src.banking_app.schemas import ClientCreate
+from src.banking_app.schemas import ClientRetrieve
 from src.banking_app.types.client import SexEnum
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
 from src.banking_app.utils.exceptions import ErrorType

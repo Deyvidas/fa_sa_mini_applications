@@ -7,22 +7,29 @@ from datetime import timedelta
 from random import choice
 from random import randint
 
+from pydantic import TypeAdapter
 from pydantic import ValidationError
 
+from typing import Sequence
+
 from src.banking_app.conf import test_settings
-from src.banking_app.schemas.client import BaseClientModel
-from src.banking_app.schemas.client import ClientCreate
-from src.banking_app.schemas.client import ClientFullUpdate
-from src.banking_app.schemas.client import ClientPartialUpdate
-from src.banking_app.schemas.client import ClientRetrieve
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas import BaseClientModel
+from src.banking_app.schemas import ClientModelWithRelations
+from src.banking_app.schemas import ClientCreate
+from src.banking_app.schemas import ClientFullUpdate
+from src.banking_app.schemas import ClientPartialUpdate
+from src.banking_app.schemas import ClientRetrieve
+from src.banking_app.schemas import BaseStatusModel
 from src.banking_app.types.client import SexEnum
 
 
+get_dto_from_dict = TypeAdapter(BaseClientModel).validate_python
+
+
 @pytest.fixture
-def data_client(clients_dto_simple):
+def data_client(clients_dto_simple: Sequence[ClientModelWithRelations]):
     random_client = choice(clients_dto_simple).model_dump()
-    random_client['client_status'] = StatusRetrieve(**random_client['client_status'])
+    random_client['client_status'] = BaseStatusModel(**random_client['client_status'])
     return random_client
 
 
@@ -39,7 +46,7 @@ class TestClientIdField:
     )
     def test_valid_values(self, data_client, raw_value, clean_value):
         data_client['client_id'] = raw_value
-        obj = BaseClientModel(**data_client)
+        obj = get_dto_from_dict(data_client)
         assert obj.client_id == clean_value
 
     @pytest.mark.parametrize(
@@ -56,7 +63,7 @@ class TestClientIdField:
     def test_must_be_positive(self, data_client, value):
         data_client['client_id'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
 
         msg = 'Input should be greater than 0'
         if value in (float('inf'), float('-inf')):
@@ -77,7 +84,7 @@ class TestClientIdField:
     def test_can_be_only_digit(self, data_client, value):
         data_client['client_id'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'].startswith('Input should be a valid integer')
@@ -98,7 +105,7 @@ class TestFullNameField:
     )
     def test_valid_values(self, data_client, value):
         data_client['full_name'] = value
-        obj = BaseClientModel(**data_client)
+        obj = get_dto_from_dict(data_client)
         assert obj.full_name == value
 
     @pytest.mark.parametrize(
@@ -129,7 +136,7 @@ class TestFullNameField:
     def test_must_contain_3_capitalized_string(self, data_client, value):
         data_client['full_name'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == f'String should match pattern \'{self.used_pattern}\''
@@ -146,7 +153,7 @@ class TestFullNameField:
     def test_must_contain_only_string(self, data_client, value):
         data_client['full_name'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -177,13 +184,13 @@ class TestBirthDateField:
     )
     def test_valid_values(self, freezer, data_client, raw_value, clean_value):
         data_client['birth_date'] = eval(raw_value)
-        obj = BaseClientModel(**data_client)
+        obj = get_dto_from_dict(data_client)
         assert str(obj.birth_date) == str(eval(clean_value))
 
     def test_cant_be_in_future(self, freezer, data_client):
         data_client['birth_date'] = test_settings.get_date_today() + timedelta(days=1)
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == (
@@ -194,7 +201,7 @@ class TestBirthDateField:
         data_client['reg_date'] = (rd := data_client['reg_date'] - timedelta(days=1))
         data_client['birth_date'] = (bd := rd + timedelta(days=1))
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == (
@@ -212,7 +219,7 @@ class TestBirthDateField:
     def test_must_be_only_date_or_compatible_to_date_string(self, data_client, value):
         data_client['birth_date'] = eval(value)
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid date'
@@ -232,7 +239,7 @@ class TestSexField:
     )
     def test_valid_values(self, data_client, raw_value, clean_value):
         data_client['sex'] = raw_value
-        obj = BaseClientModel(**data_client)
+        obj = get_dto_from_dict(data_client)
         assert obj.sex == clean_value
 
     @pytest.mark.parametrize(
@@ -248,7 +255,7 @@ class TestSexField:
     def test_invalid_values(self, data_client, value):
         data_client['sex'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be \'M\' or \'F\''
@@ -260,7 +267,7 @@ class TestPhoneField:
     def test_valid_values(self, data_client):
         phone = str(randint(10 ** 9, 10 ** 10 - 1))
         data_client['phone'] = phone
-        obj = BaseClientModel(**data_client)
+        obj = get_dto_from_dict(data_client)
         assert obj.phone == phone
 
     @pytest.mark.parametrize(
@@ -296,7 +303,7 @@ class TestPhoneField:
     def test_must_contain_string_digits_length_10(self, data_client, value, error_msg):
         data_client['phone'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == error_msg
@@ -313,7 +320,7 @@ class TestPhoneField:
     def test_must_contain_only_string(self, data_client, value):
         data_client['phone'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -330,7 +337,7 @@ class TestDocNumField:
     )
     def test_valid_values(self, data_client, value):
         data_client['doc_num'] = value
-        obj = BaseClientModel(**data_client)
+        obj = get_dto_from_dict(data_client)
         assert obj.doc_num == value
 
     @pytest.mark.parametrize(
@@ -366,7 +373,7 @@ class TestDocNumField:
     def test_must_be_string_with_digits_len_5_valid_format(self, data_client, value, error_message):
         data_client['doc_num'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == error_message
@@ -383,7 +390,7 @@ class TestDocNumField:
     def test_must_contain_only_string(self, data_client, value):
         data_client['doc_num'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -400,7 +407,7 @@ class TestDocSeriesField:
     )
     def test_valid_values(self, data_client, value):
         data_client['doc_series'] = value
-        obj = BaseClientModel(**data_client)
+        obj = get_dto_from_dict(data_client)
         assert obj.doc_series == value
 
     @pytest.mark.parametrize(
@@ -427,7 +434,7 @@ class TestDocSeriesField:
     def test_must_be_string_with_digits_len_6(self, data_client, value, error_message):
         data_client['doc_series'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == error_message
@@ -444,7 +451,7 @@ class TestDocSeriesField:
     def test_must_contain_only_string(self, data_client, value):
         data_client['doc_series'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -475,13 +482,13 @@ class TestRegDateField:
     )
     def test_valid_values(self, freezer, data_client, raw_value, clean_value):
         data_client['reg_date'] = eval(raw_value)
-        obj = BaseClientModel(**data_client)
+        obj = get_dto_from_dict(data_client)
         assert str(obj.reg_date) == str(eval(clean_value))
 
     def test_cant_be_in_future(self, freezer, data_client):
         data_client['reg_date'] = test_settings.get_date_today() + timedelta(days=1)
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == (
@@ -492,7 +499,7 @@ class TestRegDateField:
         data_client['birth_date'] = (bd := test_settings.get_date_today())
         data_client['reg_date'] = (rd := bd - timedelta(days=1))
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == (
@@ -510,7 +517,7 @@ class TestRegDateField:
     def test_must_be_only_date_or_compatible_to_date_string(self, data_client, value):
         data_client['reg_date'] = eval(value)
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid date'
@@ -535,7 +542,7 @@ class TestVipFlagField:
     def test_valid_values(self, data_client, values):
         for raw_value, clean_value in zip(values, (True, False)):
             data_client['VIP_flag'] = raw_value
-            obj = BaseClientModel(**data_client)
+            obj = get_dto_from_dict(data_client)
             assert obj.VIP_flag is clean_value
 
     @pytest.mark.parametrize(
@@ -548,7 +555,7 @@ class TestVipFlagField:
     def test_invalid_values(self, data_client, value):
         data_client['VIP_flag'] = value
         with pytest.raises(ValidationError) as error:
-            BaseClientModel(**data_client)
+            get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid boolean'
@@ -568,6 +575,43 @@ class TestSideModels:
         argnames='model,required,defaults',
         argvalues=(
             pytest.param(
+                BaseClientModel,
+                dict(
+                    client_id='Field required',
+                    full_name='Field required',
+                    birth_date='Field required',
+                    sex='Field required',
+                    phone='Field required',
+                    doc_num='Field required',
+                    doc_series='Field required',
+                    reg_date='Field required',
+                    VIP_flag='Field required',
+                    status='Field required',
+                ),
+                dict(),
+                id='BaseClientModel'
+            ),
+            pytest.param(
+                ClientModelWithRelations,
+                dict(
+                    client_id='Field required',
+                    full_name='Field required',
+                    birth_date='Field required',
+                    sex='Field required',
+                    phone='Field required',
+                    doc_num='Field required',
+                    doc_series='Field required',
+                    reg_date='Field required',
+                    VIP_flag='Field required',
+                    status='Field required',
+                    client_status='Field required',
+                    balances='Field required',
+                    cards='Field required',
+                ),
+                dict(),
+                id='ClientModelWithRelations'
+            ),
+            pytest.param(
                 ClientRetrieve,
                 dict(
                     client_id='Field required',
@@ -580,6 +624,8 @@ class TestSideModels:
                     reg_date='Field required',
                     VIP_flag='Field required',
                     client_status='Field required',
+                    balances='Field required',
+                    cards='Field required',
                 ),
                 dict(
                     status=None,
@@ -601,7 +647,6 @@ class TestSideModels:
                     reg_date=None,
                     VIP_flag=None,
                     status=None,
-                    client_status=None,
                 ),
                 id='ClientCreate'
             ),
@@ -620,7 +665,6 @@ class TestSideModels:
                     client_id=None,
                     reg_date=None,
                     VIP_flag=None,
-                    client_status=None,
                 ),
                 id='ClientFullUpdate'
             ),
@@ -638,23 +682,25 @@ class TestSideModels:
                     reg_date=None,
                     VIP_flag=None,
                     status=None,
-                    client_status=None,
                 ),
                 id='ClientPartialUpdate'
             ),
         ),
     )
     def test_required_fields(self, data_client, exclude, model, required, defaults):
+        get_dto_from_dict = TypeAdapter(model).validate_python
+        all_fields = set(required.keys()) | set(defaults.keys())
+
         if exclude == '__not__':
-            obj = model(**data_client)
-            for f, v in data_client.items():
-                assert getattr(obj, f) == v
+            obj = get_dto_from_dict(data_client)
+            for f in all_fields:
+                assert getattr(obj, f) == data_client[f]
             return
 
         # Check if an exception was raised when the required field was missed.
         if len(required) != 0:
             with pytest.raises(ValidationError) as error:
-                model()
+                get_dto_from_dict(dict())
             errors = error.value.errors()
             assert len(errors) == len(required)
             for error in errors:
@@ -667,6 +713,6 @@ class TestSideModels:
                 data_without.pop(k)
                 expected_data[k] = v
 
-            obj = model(**data_without)
-            for k, v in expected_data.items():
-                assert getattr(obj, k) == v
+            obj = get_dto_from_dict(data_without)
+            for f in all_fields:
+                assert getattr(obj, f) == expected_data[f]

@@ -12,9 +12,12 @@ from random import randint
 from typing import Any
 from typing import Sequence
 
-from src.banking_app.schemas.client import BaseClientModel
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas import ClientModelWithRelations
+from src.banking_app.schemas import BaseStatusModel
 from src.banking_app.tests.test_status.factory import factory_statuses_dto
+
+
+statuses_dto = [BaseStatusModel(**s.model_dump()) for s in factory_statuses_dto]
 
 
 class ClientFactoryHelper:
@@ -29,8 +32,8 @@ class ClientFactoryHelper:
         return cls.CLIENT_ID
 
     @classmethod
-    def client_status(cls) -> StatusRetrieve:
-        return StatusRetrieve(**choice(factory_statuses_dto).model_dump())
+    def client_status(cls) -> BaseStatusModel:
+        return choice(statuses_dto)
 
     @classmethod
     def birth_date(cls, _, values: dict[str, Any]) -> date:
@@ -39,19 +42,21 @@ class ClientFactoryHelper:
 
 
 class ClientFactory(ModelFactory):
-    __model__ = BaseClientModel
-    __check_model__ = True
+    __model__ = ClientModelWithRelations
+
     client_id = Use(ClientFactoryHelper.client_id)
     client_status = Use(ClientFactoryHelper.client_status)
     birth_date = PostGenerated(ClientFactoryHelper.birth_date)
+    balances = Use(list)
+    cards = Use(list)
 
     @post_generated
     @classmethod
-    def status(cls, client_status: StatusRetrieve) -> int:
+    def status(cls, client_status: BaseStatusModel) -> int:
         return client_status.status
 
 
-factory_clients_dto: Sequence[BaseClientModel] = ClientFactory().batch(
+factory_clients_dto: Sequence[ClientModelWithRelations] = ClientFactory().batch(
     ClientFactoryHelper.AMOUNT,
     factory_use_construct=True,
 )

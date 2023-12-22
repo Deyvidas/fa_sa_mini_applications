@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date
 
 from pydantic import Field
@@ -6,11 +8,16 @@ from pydantic import model_validator
 from pydantic_core import PydanticCustomError
 
 from typing import Annotated
+from typing import TYPE_CHECKING
 
 from src.banking_app.conf import settings
-from src.banking_app.schemas.base import Base
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas import Base
 from src.banking_app.types.client import SexEnum
+
+if TYPE_CHECKING:
+    from src.banking_app.schemas import BalanceRetrieve
+    from src.banking_app.schemas import CardDTO
+    from src.banking_app.schemas import BaseStatusModel
 
 
 _client_id = Annotated[
@@ -79,9 +86,6 @@ _status_number = Annotated[
         examples=[100],
     )
 ]
-_status_model = Annotated[
-    StatusRetrieve, Field()
-]
 
 
 class BaseClientModel(Base):
@@ -95,7 +99,6 @@ class BaseClientModel(Base):
     reg_date: _reg_date
     VIP_flag: _VIP_flag
     status: _status_number
-    client_status: _status_model
 
     @field_validator('birth_date')
     @classmethod
@@ -134,7 +137,13 @@ class BaseClientModel(Base):
         )
 
 
-class ClientRetrieve(BaseClientModel):
+class ClientModelWithRelations(BaseClientModel):
+    client_status: BaseStatusModel
+    balances: list[BalanceRetrieve]
+    cards: list[CardDTO]
+
+
+class ClientRetrieve(ClientModelWithRelations):
     status: _status_number = Field(default=None, exclude=True)
 
 
@@ -143,14 +152,12 @@ class ClientCreate(BaseClientModel):
     reg_date: _reg_date = Field(default=None, exclude=True)
     VIP_flag: _VIP_flag = Field(default=None, exclude=True)
     status: _status_number = Field(default=None, exclude=True)
-    client_status: _status_model = Field(default=None, exclude=True)
 
 
 class ClientFullUpdate(BaseClientModel):
     client_id: _client_id = Field(default=None, exclude=True)
     reg_date: _reg_date = Field(default=None, exclude=True)
     VIP_flag: _VIP_flag = Field(default=None, exclude=True)
-    client_status: _status_model = Field(default=None, exclude=True)
 
 
 class ClientPartialUpdate(BaseClientModel):
@@ -164,4 +171,3 @@ class ClientPartialUpdate(BaseClientModel):
     reg_date: _reg_date = Field(default=None, exclude=True)
     VIP_flag: _VIP_flag = Field(default=None, exclude=True)
     status: _status_number = Field(default=None)
-    client_status: _status_model = Field(default=None, exclude=True)

@@ -1,8 +1,5 @@
 import pytest
 
-from copy import deepcopy
-from pydantic import TypeAdapter
-
 from random import choice
 from random import sample
 
@@ -72,8 +69,8 @@ class BaseTestCreate(BaseTestHelper):
         assert isinstance(instance := instance[0], self.model_orm)
 
         # Insert default values into the data for comparison.
-        data.update(self.default_values)
-        self.compare_obj_before_after(instance, data)
+        model_dto = model_dto.model_copy(update=self.default_values)
+        self.compare_obj_before_after(model_dto, instance, exclude=list(self.related_fields))
 
         # Check that the object has been created in the DB.
         statement = select(self.model_orm)
@@ -92,7 +89,7 @@ class BaseTestBulkCreate(BaseTestHelper):
         statement = self.manager.bulk_create(list_kwargs)
         instances = session.scalars(statement).unique().all()
         session.commit()
-        self.compare_list_before_after(list_kwargs, instances)
+        self.compare_list_before_after(models_dto, instances)
 
         # Check that objects have been created in the DB.
         statement = select(self.model_orm)
@@ -134,8 +131,8 @@ class BaseTestBulkCreate(BaseTestHelper):
         session.commit()
 
         # Insert default values into the data for comparison.
-        [k.update(self.default_values) for k in list_kwargs]
-        self.compare_list_before_after(list_kwargs, instances)
+        models_dto = [m.copy(update=self.default_values) for m in models_dto]
+        self.compare_list_before_after(models_dto, instances, exclude=list(self.related_fields))
 
         # Check that the object has been created in the DB.
         statement = select(self.model_orm)
@@ -175,45 +172,49 @@ class BaseTestFilter(BaseTestHelper):
 class BaseTestUpdate(BaseTestHelper):
 
     def test_single_instance_by_pk(self, session: Session, models_orm):
-        get_dto_from_orm = TypeAdapter(self.model_dto).validate_python
+        get_dto_from_orm = self.SingleAdapter.validate_python
 
         for pk in (pks := self.primary_keys):
-            instance_to_update = choice(models_orm)
+            to_update_dto = get_dto_from_orm(choice(models_orm))
 
             # Prepare data.
             new_model_dto = self.factory.build(factory_use_construct=True)
             assert type(new_model_dto) is self.model_dto
             # Check if the generated dto model has different values from the instance values.
-            while get_dto_from_orm(instance_to_update) == new_model_dto:
-                instance_to_update = choice(models_orm)
-            instance_to_update = deepcopy(instance_to_update)  # To save original state.
+            while to_update_dto == new_model_dto:
+                to_update_dto = get_dto_from_orm(choice(models_orm))
             # Exclude current pk and for other primary keys set value equal to instance_to_update.
+            new_model_dto = new_model_dto.model_copy(
+                update={f: getattr(to_update_dto, f) for f in pks - {pk}}
+            )
             new_data = self.get_orm_data_from_dto(new_model_dto, exclude={pk})
-            [new_data.update({f: getattr(instance_to_update, f)}) for f in pks - {pk}]
 
             # Update by pk must change single instance and return it, with updated field.
             statement = self.manager.update(
-                where={pk: getattr(instance_to_update, pk)},
+                where={pk: getattr(to_update_dto, pk)},
                 set_value=new_data,
             )
             instance = session.scalars(statement).unique().all()
             session.commit()
             assert len(instance) == 1
             assert isinstance(instance := instance[0], self.model_orm)
+            session.refresh(instance)
 
             # Check that the updated instance has been returned with updated fields.
-            new_data.update({pk: getattr(instance_to_update, pk)})
-            self.compare_obj_before_after(instance, new_data)
+            new_model_dto = new_model_dto.model_copy(
+                update={pk: getattr(to_update_dto, pk)}
+            )
+            self.compare_obj_before_after(new_model_dto, instance)
 
             # Ensure that the instance has new values in the DB.
-            statement = self.manager.filter(**{pk: getattr(instance_to_update, pk)})
+            statement = self.manager.filter(**{pk: getattr(new_model_dto, pk)})
             instance_after = session.scalars(statement).unique().all()
             assert len(instance_after) == 1
             assert isinstance(instance_after := instance_after[0], self.model_orm)
             self.compare_obj_before_after(instance, instance_after)
 
     def test_single_unexistent_instance(self, session: Session, models_orm):
-        instances_before = deepcopy(models_orm)
+        models_dto_before = self.ManyAdapter.validate_python(models_orm)
 
         for pk in self.primary_keys:
 
@@ -237,7 +238,7 @@ class BaseTestUpdate(BaseTestHelper):
             # Ensure that the objects in the DB not been changed.
             statement = self.manager.filter()
             instances_after = session.scalars(statement).unique().all()
-            self.compare_list_before_after(instances_before, instances_after)
+            self.compare_list_before_after(models_dto_before, instances_after)
 
     def test_single_without_new_values(self, session: Session, models_orm):
         instance_to_update = choice(models_orm)
@@ -249,9 +250,8 @@ class BaseTestUpdate(BaseTestHelper):
             msg = UPDATE_WITH_EMPTY_BODY_MSG.format(values=dict())
             assert str(error.value) == msg
 
-            if len(pks) == 1:
-                return
-            session.rollback()
+            if len(pks) > 1:
+                session.rollback()
 
 
 class BaseTestDelete(BaseTestHelper):
@@ -291,7 +291,6 @@ class BaseTestDelete(BaseTestHelper):
             session.commit()
 
     def test_single_unexistent_instance(self, session: Session, models_orm):
-        instances_before = deepcopy(models_orm)
 
         # Make an attempt to delete the unexistent instance.
         for pk in self.primary_keys:
@@ -307,4 +306,4 @@ class BaseTestDelete(BaseTestHelper):
             # Ensure that the instances in the DB not been changed.
             statement = self.manager.filter()
             instances_after = session.scalars(statement).unique().all()
-            self.compare_list_before_after(instances_before, instances_after)
+            self.compare_list_before_after(models_orm, instances_after)

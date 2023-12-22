@@ -1,19 +1,26 @@
 import pytest
 
 from copy import deepcopy
+
+from pydantic import TypeAdapter
 from pydantic import ValidationError
+
 from random import choice
 from typing import Sequence
 
-from src.banking_app.schemas.status import BaseStatusModel
-from src.banking_app.schemas.status import StatusCreate
-from src.banking_app.schemas.status import StatusFullUpdate
-from src.banking_app.schemas.status import StatusPartialUpdate
-from src.banking_app.schemas.status import StatusRetrieve
+from src.banking_app.schemas import BaseStatusModel
+from src.banking_app.schemas import StatusModelWithRelations
+from src.banking_app.schemas import StatusCreate
+from src.banking_app.schemas import StatusFullUpdate
+from src.banking_app.schemas import StatusPartialUpdate
+from src.banking_app.schemas import StatusRetrieve
+
+
+get_dto_from_dict = TypeAdapter(BaseStatusModel).validate_python
 
 
 @pytest.fixture
-def data_status(statuses_dto: Sequence[BaseStatusModel]):
+def data_status(statuses_dto: Sequence[StatusModelWithRelations]):
     return choice(statuses_dto).model_dump()
 
 
@@ -31,7 +38,7 @@ class TestStatusField:
     def test_valid_values(self, data_status, raw_status, clean_status):
         data_status['status'] = raw_status
         try:
-            obj = BaseStatusModel(**data_status)
+            obj = get_dto_from_dict(data_status)
             assert obj.status == clean_status
         except Exception:
             assert False
@@ -50,7 +57,7 @@ class TestStatusField:
     def test_must_be_positive(self, data_status, status):
         data_status['status'] = status
         with pytest.raises(ValidationError) as error:
-            BaseStatusModel(**data_status)
+            get_dto_from_dict(data_status)
 
         msg = 'Input should be greater than 0'
         if status in (float('inf'), float('-inf')):
@@ -71,7 +78,7 @@ class TestStatusField:
     def test_can_be_only_digit(self, data_status, status):
         data_status['status'] = status
         with pytest.raises(ValidationError) as error:
-            BaseStatusModel(**data_status)
+            get_dto_from_dict(data_status)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'].startswith('Input should be a valid integer')
@@ -90,7 +97,7 @@ class TestDescriptionField:
     def test_valid_values(self, data_status, raw_description, clean_description):
         data_status['description'] = raw_description
         try:
-            obj = BaseStatusModel(**data_status)
+            obj = get_dto_from_dict(data_status)
             assert obj.description == clean_description
         except Exception:
             assert False
@@ -113,7 +120,7 @@ class TestDescriptionField:
     def test_length_must_be_between_1_and_100(self, data_status, description, message):
         data_status['description'] = description
         with pytest.raises(ValidationError) as error:
-            BaseStatusModel(**data_status)
+            get_dto_from_dict(data_status)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == message
@@ -129,7 +136,7 @@ class TestDescriptionField:
     def test_can_be_only_string(self, data_status, description):
         data_status['description'] = description
         with pytest.raises(ValidationError) as error:
-            BaseStatusModel(**data_status)
+            get_dto_from_dict(data_status)
         errors = error.value.errors()
         assert len(errors) == 1
         assert errors[0]['msg'] == 'Input should be a valid string'
@@ -149,10 +156,30 @@ class TestSideModels:
         argnames='model,required,defaults',
         argvalues=(
             pytest.param(
+                BaseStatusModel,
+                dict(
+                    status='Field required',
+                    description='Field required',
+                ),
+                dict(),
+                id='BaseStatusModel'
+            ),
+            pytest.param(
+                StatusModelWithRelations,
+                dict(
+                    status='Field required',
+                    description='Field required',
+                    clients='Field required',
+                ),
+                dict(),
+                id='StatusModelWithRelations'
+            ),
+            pytest.param(
                 StatusRetrieve,
                 dict(
                     status='Field required',
                     description='Field required',
+                    clients='Field required',
                 ),
                 dict(),
                 id='StatusRetrieve'
@@ -169,10 +196,10 @@ class TestSideModels:
             pytest.param(
                 StatusFullUpdate,
                 dict(
+                    status='Field required',
                     description='Field required',
                 ),
                 dict(
-                    status=None,
                 ),
                 id='StatusFullUpdate'
             ),
@@ -188,16 +215,19 @@ class TestSideModels:
         ),
     )
     def test_required_fields(self, data_status, exclude, model, required, defaults):
+        get_dto_from_dict = TypeAdapter(model).validate_python
+        all_fields = set(required.keys()) | set(defaults.keys())
+
         if exclude == '__not__':
-            obj = model(**data_status)
-            for f, v in data_status.items():
-                assert getattr(obj, f) == v
+            obj = get_dto_from_dict(data_status)
+            for f in all_fields:
+                assert getattr(obj, f) == data_status[f]
             return
 
         # Check if an exception was raised when the required field was missed.
         if len(required) != 0:
             with pytest.raises(ValidationError) as error:
-                model()
+                get_dto_from_dict(dict())
             errors = error.value.errors()
             assert len(errors) == len(required)
             for error in errors:
@@ -210,6 +240,6 @@ class TestSideModels:
                 data_without.pop(k)
                 expected_data[k] = v
 
-            obj = model(**data_without)
-            for k, v in expected_data.items():
-                assert getattr(obj, k) == v
+            obj = get_dto_from_dict(data_without)
+            for f in all_fields:
+                assert getattr(obj, f) == expected_data[f]

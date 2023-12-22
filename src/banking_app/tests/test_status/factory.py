@@ -3,7 +3,7 @@ from polyfactory.fields import Use
 
 from typing import Sequence
 
-from src.banking_app.schemas.status import BaseStatusModel
+from src.banking_app.schemas import StatusModelWithRelations
 from src.banking_app.models.client import DEFAULT_CLIENT_STATUS
 
 
@@ -20,11 +20,13 @@ class StatusFactoryHelper:
 
 
 class StatusFactory(ModelFactory):
-    __model__ = BaseStatusModel
+    __model__ = StatusModelWithRelations
+
     status = Use(StatusFactoryHelper.status)
+    clients = Use(list)
 
 
-factory_statuses_dto: Sequence[BaseStatusModel] = StatusFactory.batch(
+factory_statuses_dto: Sequence[StatusModelWithRelations] = StatusFactory.batch(
     StatusFactoryHelper.AMOUNT,
     factory_use_construct=True,
 )
