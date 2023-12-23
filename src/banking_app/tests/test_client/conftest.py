@@ -11,6 +11,7 @@ from src.banking_app.tests.test_client.helpers import manager
 
 
 get_orm_data_from_dto = ClientTestHelper().get_orm_data_from_dto
+primary_keys = ClientTestHelper().primary_keys
 
 
 @pytest.fixture
@@ -26,7 +27,7 @@ def clients_dto(statuses_orm, clients_dto_simple) -> Sequence[ClientModelWithRel
 
 @pytest.fixture
 def clients_orm(session, clients_dto) -> Sequence[Client]:
-    list_kwargs = [get_orm_data_from_dto(c) for c in clients_dto]
+    list_kwargs = [get_orm_data_from_dto(c, exclude=primary_keys) for c in clients_dto]
     statement = manager.bulk_create(list_kwargs)
     instances = session.scalars(statement).unique().all()
     assert len(instances) == len(clients_dto)

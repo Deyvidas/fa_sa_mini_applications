@@ -1,162 +1,64 @@
+import json as _json
 import pytest
 
 from copy import deepcopy
 from fastapi import status as _status
-from random import choice
+from random import choice, sample
 from sqlalchemy.orm.session import Session
 from typing import Sequence
 
 from src.banking_app.models.status import Status
-from src.banking_app.schemas import BaseStatusModel
-from src.banking_app.tests.test_status.helpers import StatusTestHelper
+from src.banking_app.schemas import StatusCreate
+from src.banking_app.schemas import StatusRetrieve
+from src.banking_app.tests.general.endpoints import BaseTestPost
 from src.banking_app.tests.general.endpoints import BaseTestRetrieve
+from src.banking_app.tests.test_status.helpers import StatusTestHelper
 
 
 @pytest.mark.run(order=2.00_00)
 class TestRetrieve(StatusTestHelper, BaseTestRetrieve):
-
-    def test_get_all_statuses(self, statuses_orm: Sequence[Status]):
-        response = self.client.get(f'{self.prefix}/list')
-        assert response.status_code == _status.HTTP_200_OK
-
-        body = response.json()
-        assert body is not None and isinstance(body, list)
-        assert len(body) == len(statuses_orm)
-        self.compare_list_before_after(statuses_orm, body)
-
-    @pytest.mark.parametrize(
-        argnames='status_code',
-        argvalues=(
-            pytest.param(_status.HTTP_200_OK, id='existent status number'),
-            pytest.param(_status.HTTP_404_NOT_FOUND, id='unexistent status number'),
-        ),
-    )
-    def test_get_status_with_number(
-            self,
-            statuses_orm: Sequence[Status],
-            status_code: int,
-    ):
-        # Test case when user try to get status with unexistent status number.
-        if status_code == _status.HTTP_404_NOT_FOUND:
-            unexist_status = self.get_unexistent_status_num(statuses_orm)
-            response = self.client.get(f'{self.prefix}/{unexist_status}')
-            assert response.status_code == status_code
-
-            msg = self.not_found_msg(status=unexist_status)
-            assert response.json() == {'detail': msg}
-            return
-
-        for status_db in statuses_orm:
-            response = self.client.get(f'{self.prefix}/{status_db.status}')
-            assert response.status_code == status_code
-
-            body = response.json()
-            assert body is not None and isinstance(body, dict)
-            assert set(body.keys()) == set(self.fields)
-            self.compare_obj_before_after(status_db, body)
+    model_dto = StatusRetrieve
 
 
 @pytest.mark.run(order=2.00_01)
-class TestPost(StatusTestHelper):
+class TestPost(StatusTestHelper, BaseTestPost):
+    model_dto = StatusRetrieve
+    model_dto_post = StatusCreate
 
-    def test_add_status(
-            self,
-            session: Session,
-            statuses_dto: Sequence[BaseStatusModel],
-    ):
-        # Check that the DB is empty.
-        statement = self.manager.filter()
-        instances = session.scalars(statement).unique().all()
-        assert len(instances) == 0
-
-        # Make POST query.
-        new_status = choice(statuses_dto)
-        response = self.client.post(f'{self.prefix}', json=new_status.model_dump())
-        assert response.status_code == _status.HTTP_201_CREATED
-
-        # Expect than posted status was returned.
-        body = response.json()
-        assert body is not None and isinstance(body, dict)
-        assert set(body.keys()) == set(self.fields)
-        self.compare_obj_before_after(new_status, body)
-
-        # Check if posted status is saved into DB.
-        statement = self.manager.filter()
-        instance = session.scalars(statement).unique().all()
-        assert len(instance) == 1
-        assert isinstance(instance := instance[0], self.model_orm)
-        self.compare_obj_before_after(new_status, instance)
-
-        # Then POST status with already existed status (status must be unique).
-        invalid_status = dict(
-            status=new_status.status,
-            description=f'{new_status.description} (new)',
-        )
-        response = self.client.post(f'{self.prefix}', json=invalid_status)
+    def test_add_not_unique_status(self, session: Session, models_orm):
+        url = f'{self.prefix}'
+        json = self.to_json_single(choice(models_orm))
+        response = self.client.post(url, json=_json.loads(json))
         assert response.status_code == _status.HTTP_400_BAD_REQUEST
-
         # Check if an appropriate error message was returned.
-        msg = self.not_unique_msg(status=invalid_status['status'])
-        assert response.json() == {'detail': msg}
+        kwargs = {pk: _json.loads(json)[pk] for pk in self.primary_keys}
+        assert response.json() == {'detail': self.not_unique_msg(**kwargs)}
 
-    def test_add_statuses(
-            self,
-            session: Session,
-            statuses_dto: Sequence[BaseStatusModel],
-    ):
+    def test_add_some_not_unique_statuses(self, session: Session, models_dto):
         url = f'{self.prefix}/list'
+        half = int(len(models_dto) / 2)
 
-        # Check that the DB is empty.
-        statement = self.manager.filter()
-        instances = session.scalars(statement).unique().all()
-        assert len(instances) == 0
+        # Add first half in the DB.
+        first_half = models_dto[:half]
+        list_kwargs = [self.get_orm_data_from_dto(m) for m in first_half]
+        statement = self.manager.bulk_create(list_kwargs)
+        instances_f_h = session.scalars(statement).unique().all()
+        session.commit()
 
-        # Make POST query.
-        statuses_data = [status.model_dump() for status in statuses_dto]
-        response = self.client.post(url, json=statuses_data)
-        assert response.status_code == _status.HTTP_201_CREATED
-
-        # Expect that posted statuses will be returned in the response body.
-        body = response.json()
-        assert body is not None and isinstance(body, list)
-        assert len(body) == len(statuses_data)
-        for data in body:
-            assert isinstance(data, dict)
-            assert (data.keys()) == set(self.fields)
-        self.compare_list_before_after(statuses_data, body)
-
-        # Check if the posted statuses are saved in the DB.
-        statement = self.manager.filter()
-        instances = session.scalars(statement).unique().all()
-        assert len(instances) == len(statuses_data)
-        self.compare_list_before_after(statuses_data, instances)
-
-        # Make deepcopy to compare length after invalid post.
-        statuses_before = deepcopy(instances)
-
-        # After trying to POST one already posted status and some new ones, the
-        # new statuses were not saved and the existing status was not saved either.
-        new_statuses = list()
-        for _ in range(4):
-            unexist_status_num = self.get_unexistent_status_num(statuses_data)
-            new_statuses.append(dict(
-                status=unexist_status_num,
-                description=f'Test description {unexist_status_num}',
-            ))
-        existent_status = [choice(statuses_data)]
-
-        response = self.client.post(url, json=new_statuses + existent_status)  # Invalid status placed at the last!
+        # Try to POST new objects along with the ones already existing in the DB.
+        second_half = models_dto[half:]
+        second_half += (existent := sample(first_half, 2))
+        json = self.to_json_many(second_half)
+        response = self.client.post(url, json=_json.loads(json))
         assert response.status_code == _status.HTTP_400_BAD_REQUEST
-
         # Check if an appropriate error message was returned.
-        msg = self.not_unique_msg(status=existent_status[0]['status'])
-        assert response.json() == {'detail': msg}
+        kwargs = {pk: getattr(existent[0], pk) for pk in self.primary_keys}
+        assert response.json() == {'detail': self.not_unique_msg(**kwargs)}
 
         # Check if the state of the DB has not changed.
         statement = self.manager.filter()
-        statuses_after = session.scalars(statement).unique().all()
-        assert len(statuses_after) == len(statuses_before)
-        self.compare_list_before_after(statuses_before, statuses_after)
+        instances_after = session.scalars(statement).unique().all()
+        self.compare_list_before_after(instances_f_h, instances_after)
 
 
 @pytest.mark.run(order=2.00_02)

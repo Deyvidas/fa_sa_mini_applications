@@ -70,11 +70,8 @@ class BaseTestCreate(BaseTestHelper):
 
         # Insert default values into the data for comparison.
         model_dto = model_dto.model_copy(update=self.default_values)
-        self.compare_obj_before_after(
-            model_dto,
-            instance,
-            exclude=list(self.related_fields),  # Related fields aren't updated in schemas.
-        )
+        model_dto = self.refresh_dto_model(session, model_dto)
+        self.compare_obj_before_after(model_dto, instance)
 
         # Check that the object has been created in the DB.
         statement = select(self.model_orm)
@@ -135,12 +132,9 @@ class BaseTestBulkCreate(BaseTestHelper):
         session.commit()
 
         # Insert default values into the data for comparison.
-        models_dto = [m.copy(update=self.default_values) for m in models_dto]
-        self.compare_list_before_after(
-            models_dto,
-            instances,
-            exclude=list(self.related_fields),  # Related fields aren't updated in schemas.
-        )
+        models_dto = [m.model_copy(update=self.default_values) for m in models_dto]
+        models_dto = [self.refresh_dto_model(session, m) for m in models_dto]
+        self.compare_list_before_after(models_dto, instances)
 
         # Check that the object has been created in the DB.
         statement = select(self.model_orm)

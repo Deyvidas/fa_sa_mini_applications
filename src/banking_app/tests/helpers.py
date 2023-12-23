@@ -7,6 +7,9 @@ from pydantic import TypeAdapter
 
 from random import randint
 
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.expression import delete
+
 from typing import Any
 from typing import Callable
 from typing import Sequence
@@ -36,6 +39,14 @@ class BaseTestHelper(ABC):
     def related_fields(self) -> set[str]:
         related_fields = self.model_orm.__mapper__.relationships
         return set(rf.key for rf in related_fields)
+
+    @property
+    def fields_excluded(self) -> set[str]:
+        dto_excluded = set()
+        for f, obj in self.model_dto.model_fields.items():
+            if obj.exclude is True:
+                dto_excluded.add(f)
+        return dto_excluded
 
     @property
     def primary_keys(self) -> set[str]:
@@ -77,6 +88,21 @@ class BaseTestHelper(ABC):
             f'{self.model_orm.__name__} with {details} can\'t be updated,'
             ' received empty body, change at least value of one field.'
         )
+
+    def refresh_dto_model[T: BaseModel](self, session: Session, model: T) -> T:
+        dto_model = type(model)
+        data = TypeAdapter(dto_model).dump_python(model, exclude=self.related_fields)
+        [data.setdefault(f, v) for f, v in self.default_values.items()]
+
+        # Drop all - to save original (not incremented) PK values.
+        session.execute(delete(self.model_orm))
+        instance = self.model_orm(**data)
+        session.add(instance)
+        session.flush()
+
+        model = TypeAdapter(dto_model).validate_python(instance)
+        session.rollback()
+        return model
 
     def get_orm_data_from_dto(
             self,
@@ -141,7 +167,7 @@ class BaseTestHelper(ABC):
         # By default we sort by primary key, but it can be excluded.
         ord_by = list(self.primary_keys)[0]
         if ord_by not in fields:
-            ord_by = fields[0]
+            ord_by = list(set(fields) - self.related_fields)[0]
 
         if len(before) > 1:
             before = sorted(before, key=lambda b: getattr(b, ord_by))
@@ -158,7 +184,7 @@ class BaseTestHelper(ABC):
             exclude: S | None,
             fields: S | None,
     ) -> S:
-        _fields = self.fields | self.related_fields
+        _fields = (self.fields | self.related_fields) - self.fields_excluded
         if fields is not None and len(fields) > 0:
             _fields = fields
         if exclude is not None and len(exclude) > 0:
