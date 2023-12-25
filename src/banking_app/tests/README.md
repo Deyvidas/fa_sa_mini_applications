@@ -48,12 +48,14 @@
 
 - `2.00_00 tests/test_status/test_endpoints.py::TestRetrieve`
 - `2.00_01 tests/test_status/test_endpoints.py::TestPost`
-- `2.00_02 tests/test_status/test_endpoints.py::TestUpdate`
-- `2.00_03 tests/test_status/test_endpoints.py::TestDelete`
+- `2.00_02 tests/test_status/test_endpoints.py::TestFullUpdate`
+- `2.00_03 tests/test_status/test_endpoints.py::TestPartialUpdate`
+- `2.00_04 tests/test_status/test_endpoints.py::TestDelete`
 
 <p align="left">Client</p>
 
 - `2.01_00 tests/test_client/test_endpoints.py::TestRetrieve`
 - `2.01_01 tests/test_client/test_endpoints.py::TestPost`
-- `2.01_02 tests/test_client/test_endpoints.py::TestUpdate`
-- `2.01_03 tests/test_client/test_endpoints.py::TestDelete`
+- `2.01_02 tests/test_client/test_endpoints.py::TestFullUpdate`
+- `2.01_03 tests/test_client/test_endpoints.py::TestPartialUpdate`
+- `2.01_04 tests/test_client/test_endpoints.py::TestDelete`

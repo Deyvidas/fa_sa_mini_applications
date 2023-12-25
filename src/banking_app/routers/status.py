@@ -174,9 +174,11 @@ def partial_update_status_with_status_number(
         new_data: StatusPartialUpdate,
         session: Session = Depends(activate_session),
 ):
+    where_kwargs = dict(status=status_num)
+
     try:
         statement = manager.update(
-            where=dict(status=status_num),
+            where=where_kwargs,
             set_value=new_data.model_dump(exclude_none=True),
         )
         instance = session.scalar(statement)
@@ -187,7 +189,7 @@ def partial_update_status_with_status_number(
         BaseExceptionRaiser(
             model=Status,
             error_type=ErrorType.NOT_FOUND_404,
-            kwargs=dict(status=status_num),
+            kwargs=where_kwargs,
         ).raise_exception()
 
     except ValueError as error:
@@ -196,7 +198,7 @@ def partial_update_status_with_status_number(
         BaseExceptionRaiser(
             model=Status,
             error_type=ErrorType.EMPTY_BODY_ON_PATCH_400,
-            kwargs=dict(status=status_num),
+            kwargs=where_kwargs,
         ).raise_exception()
 
 

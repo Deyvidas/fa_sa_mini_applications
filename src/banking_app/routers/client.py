@@ -13,9 +13,12 @@ from src.banking_app.connection import activate_session
 from src.banking_app.managers.client import ClientManager
 from src.banking_app.models.client import Client
 from src.banking_app.schemas import ClientCreate
+from src.banking_app.schemas import ClientFullUpdate
+from src.banking_app.schemas import ClientPartialUpdate
 from src.banking_app.schemas import ClientRetrieve
 from src.banking_app.types.client import SexEnum
 from src.banking_app.utils.exceptions import BaseExceptionRaiser
+from src.banking_app.utils.exceptions import EmptyBodyOnPatchMessage
 from src.banking_app.utils.exceptions import ErrorType
 from src.banking_app.utils.exceptions import NotFoundMessage
 
@@ -71,7 +74,7 @@ def get_all_clients(session: Session = Depends(activate_session)):
     status_code=status.HTTP_201_CREATED,
     response_model=RetrieveManyModel,
 )
-def add_list_of_clients(
+def add_clients(
         clients_list: list[ClientCreate],
         session: Session = Depends(activate_session),
 ):
@@ -111,7 +114,7 @@ def add_client(
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
 )
-def get_client_by_id(
+def get_client_with_client_id(
         client_id: int,
         session: Session = Depends(activate_session),
 ):
@@ -126,6 +129,77 @@ def get_client_by_id(
     ).raise_exception()
 
 
+@router.put(
+    path='/{client_id}',
+    status_code=status.HTTP_200_OK,
+    response_model=RetrieveOneModel,
+    responses={
+        status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
+    },
+)
+def full_update_client_with_client_id(
+    client_id: int,
+    client_data: ClientFullUpdate,
+    session: Session = Depends(activate_session),
+):
+    statement = manager.update(
+        where=dict(client_id=client_id),
+        set_value=client_data.model_dump(),
+    )
+    instance = session.scalar(statement)
+    if isinstance(instance, Client):
+        session.commit()
+        session.refresh(instance)
+        return RetrieveOne(instance)
+    BaseExceptionRaiser(
+        model=Client,
+        error_type=ErrorType.NOT_FOUND_404,
+        kwargs=dict(client_id=client_id),
+    ).raise_exception()
+
+
+@router.patch(
+    path='/{client_id}',
+    status_code=status.HTTP_200_OK,
+    response_model=RetrieveOneModel,
+    responses={
+        status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
+        status.HTTP_400_BAD_REQUEST: {'model': EmptyBodyOnPatchMessage}
+    },
+)
+def partial_update_client_with_client_id(
+    client_id: int,
+    client_data: ClientPartialUpdate,
+    session: Session = Depends(activate_session),
+):
+    where_kwargs = dict(client_id=client_id)
+
+    try:
+        statement = manager.update(
+            where=where_kwargs,
+            set_value=client_data.model_dump(exclude_none=True)
+        )
+        instance = session.scalar(statement)
+        if isinstance(instance, Client):
+            session.commit()
+            return RetrieveOne(instance)
+
+        BaseExceptionRaiser(
+            model=Client,
+            error_type=ErrorType.NOT_FOUND_404,
+            kwargs=where_kwargs,
+        ).raise_exception()
+
+    except ValueError as error:
+        if not str(error).startswith('Without new values, updating can\'t proceed'):
+            raise
+        BaseExceptionRaiser(
+            model=Client,
+            error_type=ErrorType.EMPTY_BODY_ON_PATCH_400,
+            kwargs=where_kwargs,
+        ).raise_exception()
+
+
 @router.delete(
     path='/{client_id}',
     status_code=status.HTTP_200_OK,
@@ -134,7 +208,7 @@ def get_client_by_id(
         status.HTTP_404_NOT_FOUND: {'model': NotFoundMessage},
     },
 )
-def delete_client_with_id(
+def delete_client_with_client_id(
         client_id: int,
         session: Session = Depends(activate_session),
 ):

@@ -9,4 +9,7 @@ PositiveInt = Annotated[int, Field(gt=0)]
 
 
 class Base(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_mode_override='serialization',
+    )

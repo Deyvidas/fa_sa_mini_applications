@@ -164,20 +164,24 @@ class BaseTestHelper(ABC):
             after = self.get_dto_from_many(after)
 
         fields = self._get_final_field_set(exclude, fields)
-        # By default we sort by primary key, but it can be excluded.
-        ord_by = list(self.primary_keys)[0]
-        if ord_by not in fields:
-            ord_by = list(set(fields) - self.related_fields)[0]
+        sortable = set(fields) & self._get_sortable_fields()
 
         if len(before) > 1:
-            before = sorted(before, key=lambda b: getattr(b, ord_by))
-            after = sorted(after, key=lambda a: getattr(a, ord_by))
+            before = sorted(before, key=lambda b: [getattr(b, s) for s in sortable])
+            after = sorted(after, key=lambda a: [getattr(a, s) for s in sortable])
 
         for b, a in zip(before, after):
             for field in fields:
                 assert (af := getattr(a, field)) == (be := getattr(b, field)), (
                     f'after.{field}={af} != before.{field}={be}'
                 )
+
+    def _get_sortable_fields(self) -> set[str]:
+        sortable = set()
+        for f, obj in self.model_dto.model_fields.items():
+            if '__lt__' in dir(obj.annotation):
+                sortable.add(f)
+        return sortable - self.related_fields
 
     def _get_final_field_set[S: Sequence[str]](
             self,
