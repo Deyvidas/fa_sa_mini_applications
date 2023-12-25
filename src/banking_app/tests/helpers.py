@@ -172,9 +172,7 @@ class BaseTestHelper(ABC):
 
         for b, a in zip(before, after):
             for field in fields:
-                assert (af := getattr(a, field)) == (be := getattr(b, field)), (
-                    f'after.{field}={af} != before.{field}={be}'
-                )
+                assert getattr(a, field) == getattr(b, field)
 
     def _get_sortable_fields(self) -> set[str]:
         sortable = set()

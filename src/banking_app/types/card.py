@@ -1,6 +1,6 @@
-from enum import Enum
+from src.banking_app.types.general import BaseEnum
 
 
-class CardType(Enum):
-    DEBIT = 'D'
-    CREDIT = 'C'
+class CardType(str, BaseEnum):
+    DEBIT = 'DEBIT'
+    CREDIT = 'CREDIT'

@@ -5,7 +5,6 @@ from abc import ABC
 from abc import abstractmethod
 
 from typing import Any
-from typing import Type
 from typing import TypeVar
 
 from sqlalchemy import delete
@@ -32,7 +31,7 @@ class AbstractManager(ABC):
 
     @property
     @abstractmethod
-    def model(self) -> Type[Base]:
+    def model(self) -> type[Base]:
         ...
 
 
@@ -54,11 +53,7 @@ class SelectManager(AbstractManager):
 
     def filter(self, **kwargs) -> Select:
         self._remove_not_specified_params(kwargs)
-        conditions = KwargsParser().parse_kwargs(
-            module_name=__name__,
-            model=self.model,
-            **kwargs,
-        )
+        conditions = KwargsParser().parse_kwargs(**kwargs)
         statement = (
             select(self.model).
             where(*eval(conditions))
@@ -102,11 +97,7 @@ class UpdateManager(AlterManager):
         if len(set_value) == 0:
             raise ValueError(UPDATE_WITH_EMPTY_BODY_MSG.format(values=set_value))
 
-        conditions = KwargsParser().parse_kwargs(
-            module_name=__name__,
-            model=self.model,
-            **where,
-        )
+        conditions = KwargsParser().parse_kwargs(**where)
         statement = (
             update(self.model).
             where(*eval(conditions)).
@@ -119,11 +110,7 @@ class UpdateManager(AlterManager):
 class DeleteManager(AlterManager):
 
     def delete(self, **where) -> ReturningDelete:
-        conditions = KwargsParser().parse_kwargs(
-            module_name=__name__,
-            model=self.model,
-            **where,
-        )
+        conditions = KwargsParser().parse_kwargs(**where)
         statement = (
             delete(self.model).
             where(*eval(conditions)).

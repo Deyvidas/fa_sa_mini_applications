@@ -6,6 +6,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import Enum
 
 from typing import TYPE_CHECKING
 
@@ -38,7 +39,7 @@ class Client(Base):
     phone: Mapped[str_10]
     VIP_flag: Mapped[bool] = mapped_column(default=False)
     birth_date: Mapped[date]
-    sex: Mapped[SexEnum]
+    sex = mapped_column(Enum(SexEnum, native_enum=False))
 
     status: Mapped[int] = mapped_column(
         ForeignKey(column='status_desc.status', ondelete='CASCADE'),

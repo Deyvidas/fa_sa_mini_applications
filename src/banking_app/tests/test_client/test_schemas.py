@@ -233,8 +233,8 @@ class TestSexField:
         argvalues=(
             pytest.param(SexEnum.MALE, SexEnum.MALE, id='sex=SexEnum.MALE'),
             pytest.param(SexEnum.FEMALE, SexEnum.FEMALE, id='sex=SexEnum.FEMALE'),
-            pytest.param('M', SexEnum.MALE, id='sex=\'M\''),
-            pytest.param('F', SexEnum.FEMALE, id='sex=\'F\''),
+            pytest.param('MALE', SexEnum.MALE, id='sex=\'MALE\''),
+            pytest.param('FEMALE', SexEnum.FEMALE, id='sex=\'FEMALE\''),
         ),
     )
     def test_valid_values(self, data_client, raw_value, clean_value):
@@ -245,8 +245,8 @@ class TestSexField:
     @pytest.mark.parametrize(
         argnames='value',
         argvalues=(
-            pytest.param('m', id='sex=\'m\''),
-            pytest.param('f', id='sex=\'f\''),
+            pytest.param('male', id='sex=\'male\''),
+            pytest.param('female', id='sex=\'female\''),
             pytest.param(False, id='sex=False'),
             pytest.param(12, id='sex=12'),
             pytest.param([SexEnum.MALE, SexEnum.FEMALE], id='sex=[SexEnum.MALE, SexEnum.FEMALE]'),
@@ -258,7 +258,10 @@ class TestSexField:
             get_dto_from_dict(data_client)
         errors = error.value.errors()
         assert len(errors) == 1
-        assert errors[0]['msg'] == 'Input should be \'M\' or \'F\''
+        if not isinstance(value, str):
+            assert errors[0]['msg'] == 'Input should be a valid string'
+            return
+        assert errors[0]['msg'] == 'Input should be \'MALE\' or \'FEMALE\''
 
 
 @pytest.mark.run(order=0.01_04)

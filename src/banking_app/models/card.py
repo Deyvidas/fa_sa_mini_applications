@@ -5,6 +5,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import Enum
 from sqlalchemy.types import String
 
 from typing import TYPE_CHECKING
@@ -22,7 +23,7 @@ class Card(Base):
     repr_fields = ('card_number', 'card_type', 'open_date', 'close_date')
 
     card_number = mapped_column(String(16), primary_key=True)
-    card_type: Mapped[CardType]
+    card_type = mapped_column(Enum(CardType, native_enum=False))
     open_date: Mapped[date]
     close_date: Mapped[date]
     processed_datetime: Mapped[datetime]

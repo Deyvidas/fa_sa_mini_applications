@@ -1,6 +1,6 @@
-from enum import Enum
+from src.banking_app.types.general import BaseEnum
 
 
-class SexEnum(Enum):
-    MALE = 'M'
-    FEMALE = 'F'
+class SexEnum(str, BaseEnum):
+    MALE = 'MALE'
+    FEMALE = 'FEMALE'
