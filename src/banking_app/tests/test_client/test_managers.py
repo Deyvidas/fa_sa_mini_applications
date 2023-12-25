@@ -1,5 +1,6 @@
 import pytest
 
+from random import choice
 from sqlalchemy.orm.session import Session
 
 from src.banking_app.tests.general.managers import BaseTestBulkCreate
@@ -8,6 +9,7 @@ from src.banking_app.tests.general.managers import BaseTestDelete
 from src.banking_app.tests.general.managers import BaseTestFilter
 from src.banking_app.tests.general.managers import BaseTestUpdate
 from src.banking_app.tests.test_client.conftest import ClientTestHelper
+from src.banking_app.utils.kwargs_parser import KwargsParser
 
 
 @pytest.mark.run(order=1.01_00)
@@ -47,6 +49,44 @@ class TestFilter(ClientTestHelper, BaseTestFilter):
 
     def test_by_unexistent_primary_key(self, session: Session, models_orm):
         return super().test_by_unexistent_primary_key(session, models_orm)
+
+    @pytest.mark.parametrize(
+        argnames='attr',
+        argvalues=(
+            pytest.param('status', id='status'),
+            pytest.param('phone', id='phone'),
+            pytest.param('VIP_flag', id='VIP_flag'),
+            pytest.param('sex', id='sex'),
+        ),
+    )
+    def test_by_single_attribute(self, attr, session: Session, models_orm):
+        random_model = choice(models_orm)
+        attr_value = getattr(random_model, attr)
+
+        statement = self.manager.filter(**{attr: attr_value})
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) > 0
+
+        found = list(filter(
+            lambda m: getattr(m, attr) == attr_value, models_orm
+        ))
+        self.compare_list_before_after(found, instances)
+
+    def test_by_multiple_attributes(self, session: Session, models_orm):
+        random_model = choice(models_orm)
+
+        dto_model = self.get_dto_from_single(random_model)
+        can_filter_by = {'status', 'phone', 'VIP_flag', 'sex'}
+        kwargs = dto_model.model_dump(include=can_filter_by)
+
+        statement = self.manager.filter(**kwargs)
+        instances = session.scalars(statement).unique().all()
+        assert len(instances) > 0
+
+        filter_kwargs = {k: KwargsParser()._value_dump(v) for k, v in kwargs.items()}
+        expression = ' and '.join(f'm.{k} == {repr(v)}' for k, v in filter_kwargs.items())
+        found = list(filter(lambda m: eval(expression), models_orm))
+        self.compare_list_before_after(instances, found)
 
 
 @pytest.mark.run(order=1.01_03)
