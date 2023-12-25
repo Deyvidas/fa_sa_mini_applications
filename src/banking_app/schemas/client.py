@@ -15,8 +15,8 @@ from src.banking_app.schemas import Base
 from src.banking_app.types.client import SexEnum
 
 if TYPE_CHECKING:
-    from src.banking_app.schemas import BalanceRetrieve
-    from src.banking_app.schemas import CardDTO
+    from src.banking_app.schemas import BaseBalanceModel
+    from src.banking_app.schemas import BaseCardModel
     from src.banking_app.schemas import BaseStatusModel
 
 
@@ -139,8 +139,8 @@ class BaseClientModel(Base):
 
 class ClientModelWithRelations(BaseClientModel):
     client_status: BaseStatusModel
-    balances: list[BalanceRetrieve]
-    cards: list[CardDTO]
+    balances: list[BaseBalanceModel]
+    cards: list[BaseCardModel]
 
 
 class ClientRetrieve(ClientModelWithRelations):

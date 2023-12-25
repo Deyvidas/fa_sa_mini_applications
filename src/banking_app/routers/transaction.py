@@ -12,8 +12,8 @@ from typing import TypeAlias
 
 from src.banking_app.connection import activate_session
 from src.banking_app.models.transaction import Transaction
-from src.banking_app.schemas import TransactionGetDTO
-from src.banking_app.schemas import TransactionPostDTO
+from src.banking_app.schemas import TransactionCreate
+from src.banking_app.schemas import TransactionRetrieve
 
 
 router = APIRouter(
@@ -21,7 +21,7 @@ router = APIRouter(
     tags=['Card transactions'],
 )
 
-RetrieveOneModel: TypeAlias = TransactionGetDTO
+RetrieveOneModel: TypeAlias = TransactionRetrieve
 RetrieveManyModel: TypeAlias = Sequence[RetrieveOneModel]
 
 RetrieveOne = TypeAdapter(RetrieveOneModel).validate_python
@@ -45,7 +45,7 @@ def get_transactions(session: Session = Depends(activate_session)):
     response_model=RetrieveOneModel,
 )
 def add_transaction(
-        transaction_data: TransactionPostDTO,
+        transaction_data: TransactionCreate,
         session: Session = Depends(activate_session),
 ):
     instance = Transaction(**transaction_data.model_dump())

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from src.banking_app.schemas import Base
 
 if TYPE_CHECKING:
-    from src.banking_app.schemas import CardDTO
+    from src.banking_app.schemas import BaseCardModel
 
 
 _trans_id = Annotated[
@@ -39,12 +39,14 @@ class BaseTransactionModel(Base):
     processed_datetime: _processed_datetime
     card_number: _card_number
 
-    card: CardDTO
+
+class TransactionModelWithRelations(BaseTransactionModel):
+    card: BaseCardModel
 
 
-class TransactionPostDTO(BaseTransactionModel):
+class TransactionRetrieve(TransactionModelWithRelations):
+    ...
+
+
+class TransactionCreate(BaseTransactionModel):
     trans_id: _trans_id = Field(default=None, exclude=True)
-
-
-class TransactionGetDTO(TransactionPostDTO):
-    card: CardDTO = Field(default=None, exclude=True)

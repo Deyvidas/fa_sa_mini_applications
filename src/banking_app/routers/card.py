@@ -12,7 +12,8 @@ from typing import Sequence
 
 from src.banking_app.connection import activate_session
 from src.banking_app.models.card import Card
-from src.banking_app.schemas import CardDTO
+from src.banking_app.schemas import CardCreate
+from src.banking_app.schemas import CardRetrieve
 
 
 router = APIRouter(
@@ -20,7 +21,7 @@ router = APIRouter(
     tags=['Cards of client'],
 )
 
-RetrieveOneModel: TypeAlias = CardDTO
+RetrieveOneModel: TypeAlias = CardRetrieve
 RetrieveManyModel: TypeAlias = Sequence[RetrieveOneModel]
 
 RetrieveOne = TypeAdapter(RetrieveOneModel).validate_python
@@ -44,7 +45,7 @@ def get_cards(session: Session = Depends(activate_session)):
     response_model=RetrieveOneModel,
 )
 def add_card(
-        card_data: CardDTO,
+        card_data: CardCreate,
         session: Session = Depends(activate_session),
 ):
     instance = Card(**card_data.model_dump())

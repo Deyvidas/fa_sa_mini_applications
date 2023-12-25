@@ -12,7 +12,7 @@ from src.banking_app.schemas import Base
 from src.banking_app.types.general import MoneyAmount
 
 if TYPE_CHECKING:
-    from src.banking_app.schemas import ClientRetrieve
+    from src.banking_app.schemas import BaseClientModel
 
 
 _row_id = Annotated[
@@ -53,16 +53,16 @@ class BaseBalanceModel(Base):
     processed_datetime: _processed_datetime
     client_id: _client_id
 
-    client: ClientRetrieve
+
+class BalanceModelWithRelations(BaseBalanceModel):
+    client: BaseClientModel
 
 
-class BalanceRetrieve(BaseBalanceModel):
-    client: ClientRetrieve = Field(default=None, exclude=True)
+class BalanceRetrieve(BalanceModelWithRelations):
+    ...
 
 
 class BalanceCreate(BaseBalanceModel):
     row_id: _row_id = Field(default=None, exclude=True)
     actual_flag: _actual_flag = Field(default=None, exclude=True)
     processed_datetime: _processed_datetime = Field(default=None, exclude=True)
-
-    client: ClientRetrieve = Field(default=None, exclude=True)
