@@ -2,7 +2,6 @@ from re import findall
 from re import sub
 
 from abc import ABC
-from abc import abstractmethod
 
 from typing import Any
 from typing import TypeVar
@@ -28,11 +27,7 @@ UPDATE_WITH_EMPTY_BODY_MSG = (
 
 
 class AbstractManager(ABC):
-
-    @property
-    @abstractmethod
-    def model(self) -> type[Base]:
-        ...
+    model: type[Base]
 
 
 class AlterManager(AbstractManager):

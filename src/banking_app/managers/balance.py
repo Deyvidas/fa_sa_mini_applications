@@ -1,5 +1,4 @@
 from typing import Any
-from typing import Type
 
 from sqlalchemy import Insert
 from sqlalchemy import Select
@@ -12,10 +11,7 @@ from src.banking_app.models.client import Client
 
 
 class BalanceManager(SeCrUpManager):
-
-    @property
-    def model(self) -> Type[Balance]:
-        return Balance
+    model: type[Balance]
 
     def filter(self, **kwargs) -> Select:
         statement = self._enrich_statement(super().filter(**kwargs))

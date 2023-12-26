@@ -9,7 +9,6 @@ from pydantic import Field
 from typing import Any
 from typing import NamedTuple
 from typing import NoReturn
-from typing import Type
 
 from src.banking_app.models.base import Base
 
@@ -62,7 +61,7 @@ class ErrorType(Enum):
 
 
 class BaseExceptionRaiser(BaseModel):
-    model: Type[Base]
+    model: type[Base]
     error_type: ErrorType
     kwargs: dict[str, Any]
 

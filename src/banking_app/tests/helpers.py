@@ -13,7 +13,6 @@ from sqlalchemy.sql.expression import delete
 from typing import Any
 from typing import Callable
 from typing import Sequence
-from typing import Type
 from typing import TypeAlias
 
 from src.banking_app.managers.base import BaseManager
@@ -24,8 +23,8 @@ class BaseTestHelper(ABC):
     client: TestClient
     factory: ModelFactory
     manager: BaseManager
-    model_dto: Type[BaseModel]
-    model_orm: Type[Base]
+    model_dto: type[BaseModel]
+    model_orm: type[Base]
     prefix: str
 
     DataType: TypeAlias = Base | BaseModel | dict[str, Any]
@@ -91,7 +90,7 @@ class BaseTestHelper(ABC):
 
     def refresh_dto_model[T: BaseModel](self, session: Session, model: T) -> T:
         dto_model = type(model)
-        data = TypeAdapter(dto_model).dump_python(model, exclude=self.related_fields)
+        data = TypeAdapter(dto_model).dump_python(model, include=self.fields)
         [data.setdefault(f, v) for f, v in self.default_values.items()]
 
         # Drop all - to save original (not incremented) PK values.

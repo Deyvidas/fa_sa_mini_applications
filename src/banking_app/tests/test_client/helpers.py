@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from typing import Any
 from typing import Sequence
-from typing import Type
 from typing import TypeAlias
 
 from src.banking_app.main import banking_app
@@ -24,8 +23,8 @@ class ClientTestHelper(BaseTestHelper):
     client = TestClient(banking_app)
     factory: ClientFactory = ClientFactory()
     manager: ClientManager = manager
-    model_dto: Type[ClientModelWithRelations] = ClientModelWithRelations
-    model_orm: Type[Client] = Client
+    model_dto: type[ClientModelWithRelations] = ClientModelWithRelations
+    model_orm: type[Client] = Client
     prefix = '/clients'
 
     @pytest.fixture

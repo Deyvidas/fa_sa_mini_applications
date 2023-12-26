@@ -6,7 +6,6 @@ from sqlalchemy.sql.dml import ReturningDelete
 from sqlalchemy.sql.dml import ReturningInsert
 
 from typing import Any
-from typing import Type
 
 from src.banking_app.managers.base import AllStatements
 from src.banking_app.managers.base import BaseManager
@@ -14,10 +13,7 @@ from src.banking_app.models.client import Client
 
 
 class ClientManager(BaseManager):
-
-    @property
-    def model(self) -> Type[Client]:
-        return Client
+    model: type[Client] = Client
 
     def filter(self, **kwargs) -> Select:
         statement = self._enrich_statement(super().filter(**kwargs))

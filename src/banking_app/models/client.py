@@ -52,7 +52,6 @@ class Client(Base):
     balances: Mapped[list['Balance']] = relationship(
         lazy='joined',
         back_populates='client',
-        # Required for Balance.actual_flag updating when add new Balance.
         order_by='Balance.processed_datetime',
     )
     cards: Mapped[list['Card']] = relationship(

@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from typing import Any
 from typing import Sequence
-from typing import Type
 from typing import TypeAlias
 
 from src.banking_app.main import banking_app
@@ -24,8 +23,8 @@ class StatusTestHelper(BaseTestHelper):
     client = TestClient(banking_app)
     factory: StatusFactory = StatusFactory()
     manager: StatusManager = manager
-    model_dto: Type[StatusModelWithRelations] = StatusModelWithRelations
-    model_orm: Type[Status] = Status
+    model_dto: type[StatusModelWithRelations] = StatusModelWithRelations
+    model_orm: type[Status] = Status
     prefix = '/status'
 
     @pytest.fixture

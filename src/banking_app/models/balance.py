@@ -21,8 +21,6 @@ class Balance(Base):
     row_id: Mapped[int_pk]
     current_amount: Mapped[decimal_8_2]
     actual_flag: Mapped[bool] = mapped_column(default=True)
-    # Value of processed_datetime field cant be assigned manually!
-    # Value of this field is used to sort Client.balances.
     processed_datetime: Mapped[datetime_now]
 
     client_id: Mapped[int] = mapped_column(

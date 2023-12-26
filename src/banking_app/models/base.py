@@ -10,7 +10,6 @@ from sqlalchemy.orm import mapped_column
 from sqlalchemy.types import DECIMAL
 
 from typing import Annotated
-from typing import Any
 from typing import TypeVar
 
 from src.banking_app.conf import settings
@@ -54,6 +53,3 @@ class Base(DeclarativeBase):
 
     def __repr__(self) -> str:
         return str(self)
-
-    def __call__(self, *args: Any, **kwargs: Any) -> None:
-        return super().__init__(*args, **kwargs)
