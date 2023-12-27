@@ -5,8 +5,6 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import BaseModel
 from pydantic import TypeAdapter
 
-from random import randint
-
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import delete
 
@@ -117,19 +115,12 @@ class BaseTestHelper(ABC):
 
     def get_unexistent_numeric_value(
             self,
-            *,
             field: str,
             objects: Sequence[DataType],
     ) -> int:
         assert len(objects) > 0
-        if all(map(lambda o: not isinstance(o, self.model_dto), objects)):
-            objects = self.get_dto_from_many(objects)
-
-        existent_numbers = [getattr(o, field) for o in objects]
-        while True:
-            num = randint(10 ** 5, 10 ** 6 - 1)  # [100_000; 999_999]
-            if num not in existent_numbers:
-                return num
+        sorted_numbers = sorted(getattr(o, field) for o in objects)
+        return sorted_numbers[-1] + 1
 
     def compare_obj_before_after[T: DataType, S: Sequence[str]](
             self,

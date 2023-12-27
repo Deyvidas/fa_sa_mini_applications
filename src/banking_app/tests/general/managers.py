@@ -161,10 +161,7 @@ class BaseTestFilter(BaseTestHelper):
 
     def test_by_unexistent_primary_key(self, session: Session, models_orm):
         for pk in self.primary_keys:
-            unexistent_pk = self.get_unexistent_numeric_value(
-                field=pk,
-                objects=models_orm,
-            )
+            unexistent_pk = self.get_unexistent_numeric_value(pk, models_orm)
             statement = self.manager.filter(**{pk: unexistent_pk})
             instance = session.scalar(statement)
             assert instance is None
@@ -221,10 +218,7 @@ class BaseTestUpdate(BaseTestHelper):
             new_data = self.get_orm_data_from_dto(new_model_dto)
 
             # Make an attempt to update the unexistent instance.
-            unexistent_pk = self.get_unexistent_numeric_value(
-                field=pk,
-                objects=models_orm,
-            )
+            unexistent_pk = self.get_unexistent_numeric_value(pk, models_orm)
             statement = self.manager.update(
                 where={pk: unexistent_pk},
                 set_value=new_data,
@@ -290,10 +284,7 @@ class BaseTestDelete(BaseTestHelper):
 
         # Make an attempt to delete the unexistent instance.
         for pk in self.primary_keys:
-            unexistent_pk = self.get_unexistent_numeric_value(
-                field=pk,
-                objects=models_orm,
-            )
+            unexistent_pk = self.get_unexistent_numeric_value(pk, models_orm)
             statement = self.manager.delete(**{pk: unexistent_pk})
             instance = session.scalar(statement)
             session.commit()

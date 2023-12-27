@@ -34,6 +34,3 @@ class ClientTestHelper(BaseTestHelper):
     @pytest.fixture
     def models_orm(self, clients_orm) -> Sequence[Client]:
         return clients_orm
-
-    def get_unexistent_client_id(self, objects: Sequence[ClientData]) -> int:
-        return super().get_unexistent_numeric_value(field='client_id', objects=objects)

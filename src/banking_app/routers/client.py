@@ -3,6 +3,7 @@ from fastapi import Depends
 from fastapi import status
 
 from pydantic import TypeAdapter
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.session import Session
 
 from typing import Sequence
@@ -12,6 +13,7 @@ from src.banking_app.conf import NotSpecifiedParam
 from src.banking_app.connection import activate_session
 from src.banking_app.managers.client import ClientManager
 from src.banking_app.models.client import Client
+from src.banking_app.models.status import Status
 from src.banking_app.schemas import ClientCreate
 from src.banking_app.schemas import ClientFullUpdate
 from src.banking_app.schemas import ClientPartialUpdate
@@ -146,7 +148,18 @@ def full_update_client_with_client_id(
         where=dict(client_id=client_id),
         set_value=client_data.model_dump(),
     )
-    instance = session.scalar(statement)
+    try:
+        instance = session.scalar(statement)
+
+    except IntegrityError as error:
+        if 'status' not in error._message():
+            raise
+        BaseExceptionRaiser(
+            model=Status,
+            error_type=ErrorType.NOT_FOUND_404,
+            kwargs=manager.parse_integrity_error(error),
+        ).raise_exception()
+
     if isinstance(instance, Client):
         session.commit()
         session.refresh(instance)
@@ -179,7 +192,18 @@ def partial_update_client_with_client_id(
             where=where_kwargs,
             set_value=client_data.model_dump(exclude_none=True)
         )
-        instance = session.scalar(statement)
+        try:
+            instance = session.scalar(statement)
+
+        except IntegrityError as error:
+            if 'status' not in error._message():
+                raise
+            BaseExceptionRaiser(
+                model=Status,
+                error_type=ErrorType.NOT_FOUND_404,
+                kwargs=manager.parse_integrity_error(error),
+            ).raise_exception()
+
         if isinstance(instance, Client):
             session.commit()
             return RetrieveOne(instance)

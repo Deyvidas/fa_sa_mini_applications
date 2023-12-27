@@ -34,6 +34,3 @@ class StatusTestHelper(BaseTestHelper):
     @pytest.fixture
     def models_orm(self, statuses_orm) -> Sequence[Status]:
         return statuses_orm
-
-    def get_unexistent_status_num(self, objects: Sequence[StatusData]) -> int:
-        return super().get_unexistent_numeric_value(field='status', objects=objects)

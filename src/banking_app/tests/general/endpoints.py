@@ -57,10 +57,7 @@ class BaseTestRetrieve(BaseTestHelper):
 
     def test_get_by_unexistent_pk(self, models_orm):
         for pk in self.primary_keys:
-            unexistent_pk = self.get_unexistent_numeric_value(
-                field=pk,
-                objects=models_orm
-            )
+            unexistent_pk = self.get_unexistent_numeric_value(pk, models_orm)
             url = f'{self.prefix}/{unexistent_pk}'
 
             # Make a GET query that that will return a message indicating that
@@ -169,10 +166,7 @@ class BaseTestFullUpdate(BaseTestHelper, APIChange):
 
         for pk in self.primary_keys:
             new_data = self.factory.build(factory_use_construct=True)
-            unexistent_pk = self.get_unexistent_numeric_value(
-                field=pk,
-                objects=models_orm,
-            )
+            unexistent_pk = self.get_unexistent_numeric_value(pk, models_orm)
             url = f'{self.prefix}/{unexistent_pk}'
 
             # Make a PUT query that must returns an error message.
@@ -259,10 +253,7 @@ class BaseTestDelete(BaseTestHelper):
     def test_unexistent_instance_with_pk(self, session: Session, models_orm):
 
         for pk in self.primary_keys:
-            unexistent_pk = self.get_unexistent_numeric_value(
-                field=pk,
-                objects=models_orm,
-            )
+            unexistent_pk = self.get_unexistent_numeric_value(pk, models_orm)
             url = f'{self.prefix}/{unexistent_pk}'
 
             # Make a DELETE query with unexistent pk, that must returns the error message.
