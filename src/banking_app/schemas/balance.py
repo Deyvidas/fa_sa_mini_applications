@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 _row_id = Annotated[
     int, Field(
+        gt=0,
         examples=[1234],
     )
 ]

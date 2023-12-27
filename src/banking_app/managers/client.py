@@ -1,7 +1,4 @@
-from sqlalchemy import Delete
-from sqlalchemy import Insert
 from sqlalchemy import Select
-from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.dml import ReturningDelete
 from sqlalchemy.sql.dml import ReturningInsert
 
@@ -34,13 +31,7 @@ class ClientManager(BaseManager):
     def _enrich_statement(self, statement: AllStatements) -> AllStatements:
         """Enrich passed statement and return enriched statement."""
 
-        if isinstance(statement, (Delete, Insert)):
-            statement = (
-                statement.
-                options(joinedload(self.model.client_status))
-            )
-
-        elif isinstance(statement, Select):
+        if isinstance(statement, Select):
             statement = (
                 statement.
                 order_by(self.model.reg_date.desc()).

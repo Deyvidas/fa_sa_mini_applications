@@ -3,6 +3,7 @@ import pytest
 from random import choice
 from sqlalchemy.orm.session import Session
 
+from src.banking_app.models.client import Client
 from src.banking_app.tests.general.managers import BaseTestBulkCreate
 from src.banking_app.tests.general.managers import BaseTestCreate
 from src.banking_app.tests.general.managers import BaseTestDelete
@@ -24,6 +25,16 @@ class TestCreate(ClientTestHelper, BaseTestCreate):
     def test_not_unique(self, session: Session, models_dto):
         return super().test_not_unique(session, models_dto)
 
+    def test_client_assigned_to_status(self, session: Session, models_dto):
+        data = self.get_orm_data_from_dto(choice(models_dto))
+
+        # Create a client and check if this client is in the status.clients list.
+        statement = self.manager.create(**data)
+        instance = session.scalar(statement)
+        assert isinstance(instance, Client)
+        session.commit()
+        assert instance in instance.client_status.clients
+
 
 @pytest.mark.run(order=1.01_01)
 class TestBulkCreate(ClientTestHelper, BaseTestBulkCreate):
@@ -36,6 +47,10 @@ class TestBulkCreate(ClientTestHelper, BaseTestBulkCreate):
 
     def test_with_some_not_unique(self, session: Session, models_dto):
         return super().test_with_some_not_unique(session, models_dto)
+
+    def test_clients_assigned_to_status(self, models_orm):
+        for instance in models_orm:
+            assert instance in instance.client_status.clients
 
 
 @pytest.mark.run(order=1.01_02)
